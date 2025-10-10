@@ -1,0 +1,28 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# kee# Ignore everything by default
+*
+
+# Keep .gitignore itself
+!.gitignore
+
+# But keep these file types (code and documentation)
+!*.R
+!*.Rmd
+!*.md
+!*.txt
+
+# If I wanted to save small data 
+# !*.csv
+# !*.xslx
+
+# If I wanted to save written documents
+# !*.docx
+# !*.pdf
+
+# Also keep directories (so you can see folders)
+!*/
+
