@@ -1,14 +1,11 @@
-# 13CH4_Incubation_Round1
-
-# EV_DEFT
-
+# 13CH4 Incubation Round1
 
 ## Overview
 Repository for data processing and analysis related to my first 13CH4 incubation, including the initial pH manipulation experiment and follow up water addition experiment
 
 ## Guide to scripts in this repository
 
-***Data processing*** *(scripts used to clean, organize, and prep data for statistical analysis):* 
+***Data wrangling*** *(scripts used to clean, organize, and prep data for statistical analysis):* 
 
 1. **placeholder** - 
 
@@ -26,4 +23,5 @@ H1. I hypothesize that net soil methanotrophy responds to pH as a threshold effe
 ## Contact 
 **Ellery Vaughan**
 University of California, Berkeley - [Silver Lab](https://nature.berkeley.edu/silverlab/?department=current) 
-[ellery_vaughan@berkeley.edu](ellery_vaughan@berkeley.edu)
+
+ellery_vaughan@berkeley.edu
