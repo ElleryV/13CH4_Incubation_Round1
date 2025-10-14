@@ -233,7 +233,7 @@ CH4_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CH4_ppm_INITIAL_
   scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
   theme_bw() +
   labs(title = bquote(CH[4]~Concentrations~Timepoint~1),
-       x = "pH Treatment",
+       x = "Water Treatment",
        y = bquote(CH[4]~(ppm)),
        fill = "Water Treatment") +
   theme(
@@ -370,7 +370,7 @@ CH4_conc_means_F <- ggplot(summ_exp, aes(x = H2O_treatment, y = CH4_ppm_FINAL_me
   scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
   theme_bw() +
   labs(title = bquote(CH[4]~Concentrations~Timepoint~2),
-       x = "pH Treatment",
+       x = "Water Treatment",
        y = bquote(CH[4]~(ppm)),
        fill = "Water Treatment") +
   theme(
@@ -543,8 +543,8 @@ CO2_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_INITIAL_
   geom_label(
     data = CO2_pvals_I, 
     aes(x = 1, 
-        # y = 157000,
-        y = max(summ_exp$CO2_ppm_INITIAL_mean)*1.1, 
+        y = 157000,
+        # y = max(summ_exp$CO2_ppm_INITIAL_mean)*1.1, 
         label = label),
     inherit.aes = FALSE) +
   facet_wrap2(~soil_type, strip = strip_themed(
@@ -554,7 +554,7 @@ CO2_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_INITIAL_
   scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
   theme_bw() +
   labs(title = bquote(CO[2]~Concentrations~Timepoint~1),
-       x = "pH Treatment",
+       x = "Water Treatment",
        y = bquote(CO[2]~(ppm)),
        fill = "Water Treatment") +
   theme(
@@ -563,14 +563,13 @@ CO2_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_INITIAL_
     axis.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 12)
-  ) 
-# + 
-  # ylim(0,158000)
+  ) + 
+  ylim(0,158000)
   
 
 CO2_conc_means_I
 
-ggsave(plot = CO2_conc_means_I, filename = "figures/H2O/H2O_CO2_conc_INITIAL_mean_yvary.png", width = 8.5, height = 5)
+ggsave(plot = CO2_conc_means_I, filename = "figures/H2O/H2O_CO2_conc_INITIAL_mean.png", width = 8.5, height = 5)
 
 # removing objects initial specific 
 
@@ -693,7 +692,7 @@ CO2_conc_means_F <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_FINAL_me
   scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
   theme_bw() +
   labs(title = bquote(CO[2]~Concentrations~Timepoint~2),
-       x = "H2O Treatment",
+       x = "Water Treatment",
        y = bquote(CO[2]~(ppm)),
        fill = "Water Treatment") +
   theme(
