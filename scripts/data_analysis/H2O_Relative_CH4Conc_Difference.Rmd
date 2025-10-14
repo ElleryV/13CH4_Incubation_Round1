@@ -62,14 +62,19 @@ data <- data %>%
     
     # adding columns for time normalized concentrations 
     CH4_ppm_I_timenorm = CH4_ppm_INITIAL/T0_to_T1_days,
-    CH4_ppm_F_timenorm = CH4_ppm_FINAL/T1_to_T2_days 
+    CH4_ppm_F_timenorm = CH4_ppm_FINAL/T1_to_T2_days, 
+    CO2_ppm_I_timenorm = CO2_ppm_INITIAL/T0_to_T1_days,
+    CO2_ppm_F_timenorm = CO2_ppm_FINAL/T1_to_T2_days 
     )
 
 # write_csv(data,"all_data.csv")
 
 ```
 
-```{r summarizing data for concentration figures (initial & final) }
+
+# CH4 concentration analyses 
+
+```{r CH4 - summarizing data for concentration figures (initial & final) }
 
 # Selecting only the experimental jars to include in the figure AND removing dry control jars 
 exp_jars <- data %>%
@@ -113,8 +118,6 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 
 ```
 
-
-# CH4 concentration analyses 
 
 ## Timepoint 1 (initial)
 
@@ -244,7 +247,7 @@ CH4_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CH4_ppm_INITIAL_
 
 CH4_conc_means_I
 
-ggsave(plot = CH4_conc_means_I, filename = "figures/10.14.25/CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_I, filename = "figures/H2O/H2O_CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
 
 # removing objects initial specific 
 
@@ -381,10 +384,333 @@ CH4_conc_means_F <- ggplot(summ_exp, aes(x = H2O_treatment, y = CH4_ppm_FINAL_me
 
 CH4_conc_means_F
 
-ggsave(plot = CH4_conc_means_F, filename = "figures/10.14.25/CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_F, filename = "figures/H2O/H2O_CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
 
 # removing objects FINAL specific 
 
 # rm(CH4_models,CH4_letters,CH4_pvals)
+
+```
+
+
+# CO2 concentration analyses 
+
+```{r CO2 - summarizing data for concentration figures (initial & final) }
+
+# Selecting only the experimental jars to include in the figure AND removing dry control jars 
+exp_jars <- data %>%
+  filter(
+    jar_type == "Exp"
+  )
+
+summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forward
+  group_by(soil_type, H2O_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
+  # All subsequent summary operations will be performed within these groups
+ 
+   summarise(
+    across(
+      c(CO2_ppm_INITIAL, CO2_ppm_FINAL, CO2_ppm_I_timenorm, CO2_ppm_F_timenorm),  # Select the numeric columns to summarize: initial and final CO2 ppm
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),  # Compute mean, ignoring NAs
+        sd   = ~ sd(.x, na.rm = TRUE),    # Compute standard deviation, ignoring NAs
+        n    = ~ n()                      # Count number of rows in the group
+      ),
+      .names = "{.col}_{.fn}"  
+      # Automatically name the new summary columns using the pattern:
+      # original column name + "_" + function name
+      # e.g., CO2_ppm_INITIAL_mean, CO2_ppm_FINAL_sd
+    ),
+    .groups = "drop"  # Ungroup the data after summarising so further operations are not grouped
+  ) %>% 
+  
+  # Calculate standard error and relevel factors
+  mutate(
+    se_CO2_ppm_INITIAL = CO2_ppm_INITIAL_sd / sqrt(CO2_ppm_INITIAL_n),  # Standard error = SD / sqrt(n) for initial CO2
+    se_CO2_ppm_FINAL   = CO2_ppm_FINAL_sd / sqrt(CO2_ppm_FINAL_n),  # Standard error = SD / sqrt(n) for final CO2
+    se_CO2_ppm_I_timenorm   = CO2_ppm_I_timenorm_sd / sqrt(CO2_ppm_I_timenorm_n),
+    se_CO2_ppm_F_timenorm   = CO2_ppm_F_timenorm_sd / sqrt(CO2_ppm_F_timenorm_n),
+    
+    # Convert factors to ordered factors with specific levels
+    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),  
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))  
+  )
+
+# write_csv(summ_exp,"summarized_data.csv")
+
+```
+
+
+## Timepoint 1 (initial)
+
+```{r TIMEPOINT 1 - linear models}
+
+# Fit models for each soil_type and store results
+CO2_models_I <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CO2_ppm_INITIAL ~ H2O_treatment, data = .x)   # fit linear model for CO2 initial ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ H2O_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CO2_models
+
+# Unamended soils model results 
+summary(CO2_models_I$Unamended$model) # model summary 
+anova(CO2_models_I$Unamended$model) # ANOVA table 
+CO2_models_I$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CO2_models_I$`Ground Rock`$model) # model summary 
+anova(CO2_models_I$`Ground Rock`$model) # ANOVA table 
+CO2_models_I$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+```
+
+```{r TIMEPOINT 1 - post-hoc pairwise comparisons and dynamically generate letters}
+
+# Generate compact letter display for each soil type
+CO2_letters_I <- map_df(names(CO2_models_I), function(st) {
+  emmeans_res <- CO2_models_I[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "H2O_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))    # Relevel pH_treatment
+  )
+
+```
+
+```{r TIMEPOINT 1 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
+
+CO2_letters_I <- CO2_letters_I %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, H2O_treatment, CO2_ppm_INITIAL_mean, se_CO2_ppm_INITIAL),
+            by = c("soil_type", "H2O_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CO2_ppm_INITIAL_mean + se_CO2_ppm_INITIAL + 0.05*max(CO2_ppm_INITIAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))    # Relevel pH_treatment
+  )
+
+```
+
+```{r TIMEPOINT 1 - Create p-value annotations from model summaries}
+
+CO2_pvals_I <- map_df(names(CO2_models_I), function(st) {
+  model <- CO2_models_I[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+```
+
+```{r TIMEPOINT 1 - plot CO2 conc means and lm stats results}
+
+# Plot
+CO2_conc_means_I <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_INITIAL_mean, fill = H2O_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CO2_ppm_INITIAL_mean - se_CO2_ppm_INITIAL,
+                    ymax = CO2_ppm_INITIAL_mean + se_CO2_ppm_INITIAL),
+                width = 0.25, size = 0.3) +
+  # geom_text(
+  #   data = CO2_letters_I, 
+  #   aes(x = H2O_treatment, 
+  #       y = letter_y, 
+  #       label = letters),
+  #   inherit.aes = FALSE,
+  #   fontface = "bold",
+  #   size = 5
+  # ) +
+  geom_label(
+    data = CO2_pvals_I, 
+    aes(x = 1, 
+        # y = 157000,
+        y = max(summ_exp$CO2_ppm_INITIAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
+  theme_bw() +
+  labs(title = bquote(CO[2]~Concentrations~Timepoint~1),
+       x = "pH Treatment",
+       y = bquote(CO[2]~(ppm)),
+       fill = "Water Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) 
+# + 
+  # ylim(0,158000)
+  
+
+CO2_conc_means_I
+
+ggsave(plot = CO2_conc_means_I, filename = "figures/H2O/H2O_CO2_conc_INITIAL_mean_yvary.png", width = 8.5, height = 5)
+
+# removing objects initial specific 
+
+# rm(CO2_models,CO2_letters,CO2_pvals)
+
+```
+
+
+## Timepoint 2 (final)
+
+```{r TIMEPOINT 2 - linear models}
+
+# Fit models for each soil_type and store results
+CO2_models_F <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CO2_ppm_FINAL ~ H2O_treatment, data = .x)   # fit linear model for CO2 FINAL ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ H2O_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CO2_models
+
+# Unamended soils model results 
+summary(CO2_models_F$Unamended$model) # model summary 
+anova(CO2_models_F$Unamended$model) # ANOVA table 
+CO2_models_F$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CO2_models_F$`Ground Rock`$model) # model summary 
+anova(CO2_models_F$`Ground Rock`$model) # ANOVA table 
+CO2_models_F$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+```
+
+```{r TIMEPOINT 2 - post-hoc pairwise comparisons and dynamically generate letters}
+
+# Generate compact letter display for each soil type
+CO2_letters_F <- map_df(names(CO2_models_F), function(st) {
+  emmeans_res <- CO2_models_F[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "H2O_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))    # Relevel pH_treatment
+  )
+
+```
+
+```{r TIMEPOINT 2 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
+
+CO2_letters_F <- CO2_letters_F %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, H2O_treatment, CO2_ppm_FINAL_mean, se_CO2_ppm_FINAL),
+            by = c("soil_type", "H2O_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CO2_ppm_FINAL_mean + se_CO2_ppm_FINAL + 0.05*max(CO2_ppm_FINAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))    # Relevel pH_treatment
+  )
+
+```
+
+```{r TIMEPOINT 2 - Create p-value annotations from model summaries}
+
+CO2_pvals_F <- map_df(names(CO2_models_F), function(st) {
+  model <- CO2_models_F[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 1))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+```
+
+```{r TIMEPOINT 2 - plot CO2 conc means and lm stats results}
+
+# Plot
+CO2_conc_means_F <- ggplot(summ_exp, aes(x = H2O_treatment, y = CO2_ppm_FINAL_mean, fill = H2O_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CO2_ppm_FINAL_mean - se_CO2_ppm_FINAL,
+                    ymax = CO2_ppm_FINAL_mean + se_CO2_ppm_FINAL),
+                width = 0.25, size = 0.3) +
+  # geom_text(
+  #   data = CO2_letters_F, 
+  #   aes(x = H2O_treatment, 
+  #       y = letter_y, 
+  #       label = letters),
+  #   inherit.aes = FALSE,
+  #   fontface = "bold",
+  #   size = 5
+  # ) +
+  geom_label(
+    data = CO2_pvals_F, 
+    aes(x = 1, 
+        y = 157000,
+        # y = max(summ_exp$CO2_ppm_FINAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values=c("darkgrey", "#a6cee3"), name = "Soil Water Treatment")  +
+  theme_bw() +
+  labs(title = bquote(CO[2]~Concentrations~Timepoint~2),
+       x = "H2O Treatment",
+       y = bquote(CO[2]~(ppm)),
+       fill = "Water Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) + 
+  ylim(0,158000)
+
+CO2_conc_means_F
+
+ggsave(plot = CO2_conc_means_F, filename = "figures/H2O/H2O_CO2_conc_FINAL_mean.png", width = 8.5, height = 5)
+
+# removing objects FINAL specific 
+
+# rm(CO2_models,CO2_letters,CO2_pvals)
 
 ```

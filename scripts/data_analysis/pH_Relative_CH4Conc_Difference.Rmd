@@ -268,7 +268,7 @@ CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_m
 
 CH4_conc_means_I
 
-ggsave(plot = CH4_conc_means_I, filename = "figures/10.13.25/CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_I, filename = "figures/pH/pH_CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
 
 # removing objects initial specific 
 
@@ -404,7 +404,7 @@ CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mea
 
 CH4_conc_means_F
 
-ggsave(plot = CH4_conc_means_F, filename = "figures/10.13.25/CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_F, filename = "figures/pH/pH_CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
 
 # removing objects initial specific 
 
@@ -583,14 +583,13 @@ CO2_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CO2_ppm_INITIAL_m
     axis.text = element_text(size = 12),
     legend.title = element_text(size = 14),
     legend.text = element_text(size = 12)
-  )  
-
+  ) 
 # +
-  # ylim(0,176000)
+ # ylim(0,176000)
 
 CO2_conc_means_I
 
-ggsave(plot = CO2_conc_means_I, filename = "figures/10.14.25/CO2_conc_INITIAL_mean_yvary.png", width = 8.5, height = 5)
+ggsave(plot = CO2_conc_means_I, filename = "figures/pH/pH_CO2_conc_INITIAL_mean_yvary.png", width = 8.5, height = 5)
 
 # removing objects initial specific 
 
@@ -728,7 +727,7 @@ CO2_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CO2_ppm_FINAL_mea
 
 CO2_conc_means_F
 
-ggsave(plot = CO2_conc_means_F, filename = "figures/10.14.25/CO2_conc_FINAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CO2_conc_means_F, filename = "figures/pH/pH_CO2_conc_FINAL_mean.png", width = 8.5, height = 5)
 
 # removing objects FINAL specific 
 
