@@ -1,5 +1,5 @@
 ---
-title: "Relative_CH4Conc_Difference"
+title: "pH_Relative_CH4Conc_Difference"
 author: "Ellery Vaughan"
 date: "2025-10-06"
 output:
@@ -19,13 +19,13 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # pH Experiment CH4 & CO2 Concentration Analysis 
 
-Notes on script iterations & analysis process:
+**Notes on script iterations & analysis process:**
 I also repeated this analysis for the concentration values but normalized by incubation duration time (days). It did not change the significance of the results for timepoint 2, but the results were a little different for timepoint 1, but made less sense. So i am just going with raw concentration values because I think they're more directly interpretable. 
 Time normalized concentration analysis are now archived in old section of code (unless i really decide i don't need later and decide to delete.)
 Also moved code to OLD for combining the T1 & T2 plots into one figure because we decided we didn't want to present in 4 panel way because didn't want to encourage the comparisons between T1 and T2 concentrations within soil type. 
 
 ## Set up 
-```{r loading libraries and setting WD}
+```{r loading libraries}
 
 library(tidyverse)
 library(sjPlot)
@@ -44,7 +44,7 @@ library(multcompView)    # supplies helper functions used by cld()
 ```{r reading in and cleaning data}
 
 # concentration data 
-raw <- readxl::read_xlsx("data/EV_13CH4Inc_CH4_CO2_10.07.25.xlsx",
+raw <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.07.25.xlsx",
                           sheet = "CH4_CO2_conc_results")
 
 data <- raw[1:46,1:18]
