@@ -1,0 +1,189 @@
+---
+title: "d13C_analysis"
+author: "Ellery Vaughan"
+date: "2024-09-19"
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 3$
+    toc_float: no
+    df_print: kable 
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## d13C_analysis
+
+```{r loading libraries}
+
+library(tidyverse)
+library(sjPlot)
+library(ggtext)
+library(ggh4x)
+library(readxl)
+library(ggforce)
+library(dplyr)
+library(purrr)
+library(emmeans)
+# library(multcomp)        # not strictly required, but helpful
+library(multcompView)    # supplies helper functions used by cld()
+
+```
+
+```{r loading data}
+
+raw <- readxl::read_xlsx("data/pH_H2O_isotopes.xlsx",sheet = "Sheet1")
+
+# data <- raw %>% 
+#   filter(timepoint == "initial" | timepoint == "final" | timepoint == "final_dilcor" | timepoint == "exp_zero" ) %>%
+#   select(date:d13C_VPDB_perc)
+
+data <- raw %>% 
+  filter(jar_type == "Exp") %>% 
+  mutate(soil_type = as.factor(soil_type),
+         pH_treatment = as.factor(pH_treatment),
+         jar_type = as.factor(jar_type),
+         timepoint = as.factor(timepoint),
+         d13C_VPDB_perc = as.numeric(d13C_VPDB_perc)) %>% 
+  mutate(timepoint = fct_relevel(timepoint, c("initial","final","final_dilcor","exp_zero"))) 
+
+# removing the 3 jars where SF6 concentrations went down a considerable amount suggesting potential leakage 
+# data <- data %>%
+#   filter(sample_num != 21 & sample_num != 24 & sample_num != 37) 
+
+data <- data %>% 
+  filter(jar_type == "Exp") %>% 
+  filter(pH_treatment == "5" | pH_treatment == "7" | pH_treatment == "8" | pH_treatment == "Wet control" ) %>% 
+  mutate(pH_treatment = fct_relevel(pH_treatment, c("Wet control","5","7","8") ) ) 
+
+```
+
+```{r summarizing data for fig - final uncorrected}
+
+summary <- data %>% 
+  group_by(soil_type,pH_treatment,jar_type,timepoint) %>% 
+  summarise(mean = mean(d13C_VPDB_perc),
+            sd = sd(d13C_VPDB_perc),
+            n = length(d13C_VPDB_perc),
+            se = sd/n) %>% 
+  mutate(pH_treatment = fct_relevel(pH_treatment, c("Wet control","5","7","8") ) ) 
+
+summary_fig <- summary %>% 
+  filter(timepoint == "initial" | timepoint == "final") %>% 
+  mutate(timepoint = fct_recode(timepoint,"1" = "initial", "2" = "final")) %>% 
+  mutate(timepoint = fct_relevel(timepoint, c("1","2") ) ) 
+
+# d13C_labels <- summary_fig %>%
+#   filter(timepoint == "2") %>%              # only final (orange) points
+#   group_by(soil_type, pH_treatment) %>%     # collapse replicates
+#   summarise(mean = mean(mean), se = mean(se), .groups = "drop") %>%
+#   mutate(
+#     letters = c("p < 0.001", "p < 0.001", "p < 0.01", "p < 0.001",
+#                 "p < 0.001", "p < 0.001", "p < 0.001", "p < 0.001"), # 8 total (4 per soil_type)
+#     letter_y = mean + se + 3              # fixed offset above orange points
+#   )
+
+
+Plot <- ggplot(summary_fig, aes(x=pH_treatment,y=mean) ) +
+  geom_point(aes(color=timepoint), size = 2 ) +
+  # geom_point(data =  summary_fig, aes(x=pH_treatment,y=ExpZero_mean), color="black" ) +
+  facet_wrap2(~soil_type,
+             strip = strip_themed(
+  background_x = elem_list_rect(fill = rep("gray95", 2)),
+  text_x = elem_list_text(color = rep("black", 2)) 
+  )) +
+  # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH treatment and soil type") ) +
+  ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")" ) ) +
+  labs(x = "pH Treatment") +
+  ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH Treatment") ) +
+  theme_bw() +
+  geom_errorbar(data = summary_fig, aes(x=pH_treatment, ymin=mean-sd, ymax=mean+sd, color = timepoint), width=0.25, linewidth=.4) +
+  # geom_label(
+  # data = d13C_labels %>% distinct(soil_type, pH_treatment, .keep_all = TRUE),
+  # aes(x = pH_treatment, y = letter_y, label = letters),
+  # inherit.aes = FALSE) +
+  scale_color_brewer(palette = "Dark2") +
+  theme(
+  plot.title = element_text(size = 20),        # Title text size
+  axis.title.x = element_text(size = 14),      # X-axis title text size
+  axis.title.y = element_text(size = 14),      # Y-axis title text size
+  axis.text.x = element_text(size = 12),       # X-axis text size
+  axis.text.y = element_text(size = 12),       # Y-axis text size
+  legend.title = element_text(size = 14),      # Legend title text size
+  legend.text = element_text(size = 12),        # Legend text size
+  ) +
+  labs(color = "Timepoint")
+
+Plot
+
+ggsave(Plot, filename = "figures/isotopes/pHwetcontrol.png", width = 8.5, height = 5)
+
+```
+
+
+```{r summarizing data for fig - final 12C dilution corrected}
+
+summary <- data %>% 
+  group_by(soil_type,pH_treatment,jar_type,timepoint) %>% 
+  summarise(mean = mean(d13C_VPDB_perc),
+            sd = sd(d13C_VPDB_perc),
+            n = length(d13C_VPDB_perc),
+            se = sd/n) %>% 
+  mutate(pH_treatment = fct_relevel(pH_treatment, c("Wet control","5","7","8") ) ) 
+
+summary_fig <- summary %>% 
+  filter(timepoint == "initial" | timepoint == "final_dilcor") %>% 
+  mutate(timepoint = fct_recode(timepoint,"1" = "initial", "2" = "final_dilcor")) %>% 
+  mutate(timepoint = fct_relevel(timepoint, c("1","2") ) ) 
+
+# d13C_labels <- summary_fig %>%
+#   filter(timepoint == "2") %>%              # only final (orange) points
+#   group_by(soil_type, pH_treatment) %>%     # collapse replicates
+#   summarise(mean = mean(mean), se = mean(se), .groups = "drop") %>%
+#   mutate(
+#     letters = c("p < 0.001", "p < 0.001", "p < 0.01", "p < 0.001",
+#                 "p < 0.001", "p < 0.001", "p < 0.001", "p < 0.001"), # 8 total (4 per soil_type)
+#     letter_y = mean + se + 3              # fixed offset above orange points
+#   )
+
+
+Plot <- ggplot(summary_fig, aes(x=pH_treatment,y=mean) ) +
+  geom_point(aes(color=timepoint), size = 2 ) +
+  # geom_point(data =  summary_fig, aes(x=pH_treatment,y=ExpZero_mean), color="black" ) +
+  facet_wrap2(~soil_type,
+             strip = strip_themed(
+  background_x = elem_list_rect(fill = rep("gray95", 2)),
+  text_x = elem_list_text(color = rep("black", 2)) 
+  )) +
+  # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH treatment and soil type") ) +
+  ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")" ) ) +
+  labs(x = "pH Treatment") +
+  ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH Treatment") ) +
+  theme_bw() +
+  geom_errorbar(data = summary_fig, aes(x=pH_treatment, ymin=mean-sd, ymax=mean+sd, color = timepoint), width=0.25, linewidth=.4) +
+  # geom_label(
+  # data = d13C_labels %>% distinct(soil_type, pH_treatment, .keep_all = TRUE),
+  # aes(x = pH_treatment, y = letter_y, label = letters),
+  # inherit.aes = FALSE) +
+  scale_color_brewer(palette = "Dark2") +
+  theme(
+  plot.title = element_text(size = 20),        # Title text size
+  axis.title.x = element_text(size = 14),      # X-axis title text size
+  axis.title.y = element_text(size = 14),      # Y-axis title text size
+  axis.text.x = element_text(size = 12),       # X-axis text size
+  axis.text.y = element_text(size = 12),       # Y-axis text size
+  legend.title = element_text(size = 14),      # Legend title text size
+  legend.text = element_text(size = 12),        # Legend text size
+  ) +
+  labs(color = "Timepoint")
+
+Plot
+
+ggsave(Plot, filename = "figures/isotopes/pHwetcontrol_dilcor.png", width = 8.5, height = 5)
+
+```
