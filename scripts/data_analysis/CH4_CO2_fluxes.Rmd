@@ -627,7 +627,7 @@ H2O_CO2_letters <- H2O_CO2_letters %>%
 
 ```
 
-```{r pH exp CO2 fluxes  - Create p-value annotations from model summaries}
+```{r H2O exp CO2 fluxes  - Create p-value annotations from model summaries}
 
 H2O_CO2_pvals <- map_df(names(H2O_CO2_models), function(st) {
   model <- H2O_CO2_models[[st]]$model                # Extract the lm object
@@ -811,6 +811,26 @@ pH_H2O_CH4_models$`Ground Rock`$emmeans # returns both emmeans and pairwise obje
 
 ```{r pH exp CH4 fluxes  - post-hoc pairwise comparisons and dynamically generate letters}
 
+# Generate compact letter display for each soil type
+pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
+  emmeans_res <- pH_H2O_CH4_models[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- emmeans::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "H2O_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plottiug
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))  # Relevel pH_treatment
+  )
+
+```
+
+
+```{r pH exp CH4 fluxes  - post-hoc pairwise comparisons and dynamically generate letters}
+
 
 pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
   
@@ -863,20 +883,20 @@ pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
 
 # OLD 
 
-# # Generate compact letter display for each soil type
-# pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
-#   emmeans_res <- pH_H2O_CH4_models[[st]]$emmeans$emmeans  # Extract emmeans table
-#   cld_df <- pairs(emmeans_res, adjust = "none", Letters = letters)    # Generate compact letter display
-#   cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
-#   cld_df$soil_type <- st                            # Add soil type as a column
-#   cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
-#   cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
-#   return(cld_df)                                    # Return processed data frame
-# }) %>%
-#   mutate(
-#     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
-#     pH_treatment = factor(pH_treatment, levels = c("Wet control","5", "7", "8"))  # Relevel pH_treatment
-#   )
+# Generate compact letter display for each soil type
+pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
+  emmeans_res <- pH_H2O_CH4_models[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- pairs(emmeans_res, adjust = "none", Letters = letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Wet control","5", "7", "8"))  # Relevel pH_treatment
+  )
 
 ```
 
@@ -917,17 +937,19 @@ pH_H2O_CH4_pvals <- map_df(names(pH_H2O_CH4_models), function(st) {
 
 pH_H2O_CH4_letters <- summ_exp %>%
   mutate(
-    letters = c("a", "ab", "bc", "c", "ab", "c", "a", "bc"),   # must match row order!
+    letters = c("ab", "bc", "c", "a", "c", "a", "bc", "ab"),   # must match row order!
     # position letters just below error bars, proportional to each bar's SE
     letter_y = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se - 0.3 * ng_CH4_per_g_dry_soil_per_day_se
-  )
+  ) %>% 
+  filter(soil_type == "Unamended")
 
 ```
 
 ```{r pH exp CH4 fluxes  - plot CH4 conc means and lm stats results}
 
 # Plot
-pH_H2O_CH4_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ng_CH4_per_g_dry_soil_per_day_mean, fill = pH_treatment)) +
+pH_H2O_CH4_fluxes_means <- ggplot(data = subset(summ_exp, soil_type == "Unamended"), 
+                                  aes(x = pH_treatment, y = ng_CH4_per_g_dry_soil_per_day_mean, fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se,
                     ymax = ng_CH4_per_g_dry_soil_per_day_mean + ng_CH4_per_g_dry_soil_per_day_se),
@@ -955,10 +977,10 @@ pH_H2O_CH4_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ng_CH4_per
   #       y = max(summ_exp$ng_CH4_per_g_dry_soil_per_day_mean)*3.25, 
   #       label = label),
   #   inherit.aes = FALSE) +
-  facet_wrap2(~soil_type, strip = strip_themed(
-    background_x = elem_list_rect(fill = rep("gray95", 2)),
-    text_x = elem_list_text(color = rep("black", 2))
-  )) +
+  # facet_wrap2(~soil_type, strip = strip_themed(
+  #   background_x = elem_list_rect(fill = rep("gray95", 2)),
+  #   text_x = elem_list_text(color = rep("black", 2))
+  # )) +
   scale_fill_manual(values = c("darkgrey", "#66c2a5", "#fc8d62", "#8da0cb")) +
   theme_bw() +
   labs(title = (bquote(CH[4]~Fluxes~with~pH~Treatment) ),
@@ -976,6 +998,6 @@ pH_H2O_CH4_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ng_CH4_per
 
 pH_H2O_CH4_fluxes_means
 
-ggsave(plot = pH_H2O_CH4_fluxes_means, filename = "figures/pH/fluxes/pH_AND_H2O_wetcontrol_CH4_fluxes_means.png", width = 8.5, height = 5)
+ggsave(plot = pH_H2O_CH4_fluxes_means, filename = "figures/pH/fluxes/pH_AND_H2O_wetcontrol_CH4_fluxes_means_UNonly.png", width = 8, height = 5)
 
 ```

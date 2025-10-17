@@ -89,25 +89,28 @@ summary_fig <- summary %>%
 #   )
 
 
-Plot <- ggplot(summary_fig, aes(x=pH_treatment,y=mean) ) +
+Plot <- ggplot(data = subset(summary_fig, soil_type == "Unamended"), 
+               aes(x=pH_treatment,y=mean) ) +
   geom_point(aes(color=timepoint), size = 2 ) +
   # geom_point(data =  summary_fig, aes(x=pH_treatment,y=ExpZero_mean), color="black" ) +
-  facet_wrap2(~soil_type,
-             strip = strip_themed(
-  background_x = elem_list_rect(fill = rep("gray95", 2)),
-  text_x = elem_list_text(color = rep("black", 2)) 
-  )) +
+  # facet_wrap2(~soil_type,
+  #            strip = strip_themed(
+  # background_x = elem_list_rect(fill = rep("gray95", 2)),
+  # text_x = elem_list_text(color = rep("black", 2)) 
+  # )) +
   # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH treatment and soil type") ) +
   ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")" ) ) +
   labs(x = "pH Treatment") +
-  ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH Treatment") ) +
+  ggtitle(bquote("Initial and final" ^13*"C isotope ratios by pH Treatment") ) +
   theme_bw() +
-  geom_errorbar(data = summary_fig, aes(x=pH_treatment, ymin=mean-sd, ymax=mean+sd, color = timepoint), width=0.25, linewidth=.4) +
+  geom_errorbar(data = subset(summary_fig, soil_type == "Unamended"), 
+                aes(x=pH_treatment, ymin=mean-sd, ymax=mean+sd, color = timepoint), width=0.25, linewidth=.4) +
   # geom_label(
   # data = d13C_labels %>% distinct(soil_type, pH_treatment, .keep_all = TRUE),
   # aes(x = pH_treatment, y = letter_y, label = letters),
   # inherit.aes = FALSE) +
-  scale_color_brewer(palette = "Dark2") +
+  # scale_color_brewer(palette = "RdYlBu") +
+  scale_color_manual(values = c("#7b3294","#008837") ) +
   theme(
   plot.title = element_text(size = 20),        # Title text size
   axis.title.x = element_text(size = 14),      # X-axis title text size
@@ -121,7 +124,7 @@ Plot <- ggplot(summary_fig, aes(x=pH_treatment,y=mean) ) +
 
 Plot
 
-ggsave(Plot, filename = "figures/isotopes/pHwetcontrol.png", width = 8.5, height = 5)
+ggsave(Plot, filename = "figures/isotopes/pHwetcontrol_UNonly.png", width = 8, height = 5)
 
 ```
 
