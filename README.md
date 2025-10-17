@@ -5,13 +5,15 @@ Repository for data processing and analysis related to my first 13CH4 incubation
 
 ## Guide to scripts in this repository
 
-***Data wrangling*** *(scripts used to clean, organize, and prep data for statistical analysis):* 
-
-1. **placeholder** - 
-
 ***Data analysis*** *(scripts used to perform modeling and statistical analyses with processed data):* 
 
-1. **Relative_CH4Conc_Difference_Analysis.Rmd** - Script to analyze CH4 and CO2 concentration differences among pH treatments at the start and end of the incubation. Looking at both raw concentrations and incubation duration time normalized concentrations. 
+1. **CH4_CO2_fluxes.Rmd** - Script to make figures for CH4 and CO2 fluxes for the pH and H2O experiments. (Flux method presented here is T2 minus T1 (not 30 mL sample collection dilution corrected) ). 
+2. **d13C_analysis.Rmd** - Script to visualize and analyze differences in d13C isotope ratio values for both pH and H2O experiments.  
+3. **pH_Relative_CH4Conc_Difference.Rmd** - Script to analyze CH4 and CO2 concentration differences among pH treatments at the start and end of the incubation. Looking at both raw concentrations and incubation duration time normalized concentrations. 
+4. **H2O_Relative_CH4Conc_Difference.Rmd** - Script to analyze CH4 and CO2 concentration differences among H2O treatments at the start and end of the incubation. Looking at both raw concentrations and incubation duration time normalized concentrations. 
+
+***Data wrangling*** *(scripts used to clean, organize, and prep data for statistical analysis):* 
+
 
 ## Research questions & Hyoptheses
 Q1. What are the key biogeochemical characteristics and processes related to enhanced CH4 oxidation in soils? 

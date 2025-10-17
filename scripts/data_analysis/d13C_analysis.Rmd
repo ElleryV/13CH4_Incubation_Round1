@@ -19,6 +19,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## d13C_analysis
 
+**Script Notes**
+Script to visualize and analyze differences in d13C isotope ratio values for both pH and H2O experiments.  
+
 ```{r loading libraries}
 
 library(tidyverse)
