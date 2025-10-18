@@ -44,16 +44,15 @@ library(dplyr)
 
 ```
 
-
 ## pH Experiment 
 
 ```{r pH - reading in and cleaning data}
 
 # flux data 
-raw <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.07.25.xlsx",
+raw1 <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.07.25.xlsx",
                           sheet = "CH4_CO2_fluxes_to_stat")
 
-data <- raw %>%
+data1 <- raw1 %>%
   mutate(
     # Convert to factors and relevel
     soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),
@@ -67,13 +66,13 @@ data <- raw %>%
 ```{r pH - summarizing data for CH4 & CO2 flux figures}
 
 # Selecting only the experimental jars to include in the figure AND removing dry control jars 
-exp_jars <- data %>%
+exp_jars1 <- data1 %>%
   filter(
     jar_type == "Exp",
     pH_treatment != "Dry control"
   )
 
-summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forward
+summ_exp1 <- exp_jars1 %>%  # Start with the 'exp_jars' dataset and pipe it forward
   group_by(soil_type, pH_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
   # All subsequent summary operations will be performed within these groups
  
@@ -110,7 +109,7 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 ```{r pH exp CH4 fluxes - linear models}
 
 # Fit models for each soil_type and store results
-pH_CH4_models <- exp_jars %>% 
+pH_CH4_models <- exp_jars1 %>% 
   group_by(soil_type) %>%                                # group data by soil type
   group_map(~ {                                           # apply function to each group
     lm_fit <- lm(ng_CH4_per_g_dry_soil_per_day ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
@@ -192,7 +191,10 @@ pH_CH4_pvals <- map_df(names(pH_CH4_models), function(st) {
 ```{r pH exp CH4 fluxes  - plot means and lm stats results}
 
 # Plot
-pH_CH4_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ng_CH4_per_g_dry_soil_per_day_mean, fill = pH_treatment)) +
+pH_CH4_fluxes_means <- ggplot(summ_exp1, 
+                              aes(x = pH_treatment, 
+                                  y = ng_CH4_per_g_dry_soil_per_day_mean, 
+                                  fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se,
                     ymax = ng_CH4_per_g_dry_soil_per_day_mean + ng_CH4_per_g_dry_soil_per_day_se),
@@ -210,7 +212,7 @@ pH_CH4_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ng_CH4_per_g_d
     data = pH_CH4_pvals, 
     aes(x = 1, 
         # y = 7,
-        y = max(summ_exp$ng_CH4_per_g_dry_soil_per_day_mean)*2.5, 
+        y = max(summ_exp1$ng_CH4_per_g_dry_soil_per_day_mean)*2.5, 
         label = label),
     inherit.aes = FALSE) +
   facet_wrap2(~soil_type, strip = strip_themed(
@@ -243,7 +245,7 @@ ggsave(plot = pH_CH4_fluxes_means, filename = "figures/pH/fluxes/pH_CH4_fluxes_m
 ```{r pH exp CO2 fluxes - linear models}
 
 # Fit models for each soil_type and store results
-pH_CO2_models <- exp_jars %>% 
+pH_CO2_models <- exp_jars1 %>% 
   group_by(soil_type) %>%                                # group data by soil type
   group_map(~ {                                           # apply function to each group
     lm_fit <- lm(ug_CO2_per_g_dry_soil_per_day ~ pH_treatment, data = .x)   # fit linear model for CO2 initial ppm vs pH_treatment
@@ -325,7 +327,7 @@ pH_CO2_pvals <- map_df(names(pH_CO2_models), function(st) {
 ```{r pH exp CO2 fluxes - plot CO2 conc means and lm stats results}
 
 # Plot
-pH_CO2_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ug_CO2_per_g_dry_soil_per_day_mean, fill = pH_treatment)) +
+pH_CO2_fluxes_means <- ggplot(summ_exp1, aes(x = pH_treatment, y = ug_CO2_per_g_dry_soil_per_day_mean, fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = ug_CO2_per_g_dry_soil_per_day_mean - ug_CO2_per_g_dry_soil_per_day_se,
                     ymax = ug_CO2_per_g_dry_soil_per_day_mean + ug_CO2_per_g_dry_soil_per_day_se),
@@ -343,7 +345,7 @@ pH_CO2_fluxes_means <- ggplot(summ_exp, aes(x = pH_treatment, y = ug_CO2_per_g_d
     data = pH_CO2_pvals, 
     aes(x = 3, 
         # y = 7,
-        y = max(summ_exp$ug_CO2_per_g_dry_soil_per_day_mean)*1.15, 
+        y = max(summ_exp1$ug_CO2_per_g_dry_soil_per_day_mean)*1.15, 
         label = label),
     inherit.aes = FALSE) +
   facet_wrap2(~soil_type, strip = strip_themed(
@@ -378,10 +380,10 @@ ggsave(plot = pH_CO2_fluxes_means, filename = "figures/pH/fluxes/pH_CO2_fluxes_m
 ```{r H2O - reading in and cleaning data}
 
 # flux data 
-raw <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.14.25.xlsx",
+raw2 <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.14.25.xlsx",
                           sheet = "CH4_CO2_fluxes_to_stat")
 
-data <- raw %>%
+data2 <- raw2 %>%
   mutate(
     # Convert to factors and relevel
     soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),
@@ -395,12 +397,12 @@ data <- raw %>%
 ```{r H2O - summarizing data for CH4 & CO2 flux figures}
 
 # Selecting only the experimental jars to include in the figure AND removing dry control jars 
-exp_jars <- data %>%
+exp_jars2 <- data2 %>%
   filter(
     jar_type == "Exp"
   )
 
-summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forward
+summ_exp2 <- exp_jars2 %>%  # Start with the 'exp_jars' dataset and pipe it forward
   group_by(soil_type, H2O_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
   # All subsequent summary operations will be performed within these groups
  
@@ -437,7 +439,7 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 ```{r H2O exp CH4 fluxes - linear models}
 
 # Fit models for each soil_type and store results
-H2O_CH4_models <- exp_jars %>% 
+H2O_CH4_models <- exp_jars2 %>% 
   group_by(soil_type) %>%                                # group data by soil type
   group_map(~ {                                           # apply function to each group
     lm_fit <- lm(ng_CH4_per_g_dry_soil_per_day ~ H2O_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
@@ -500,7 +502,7 @@ H2O_CH4_letters <- H2O_CH4_letters %>%
 
 ```
 
-```{r pH exp CH4 fluxes  - Create p-value annotations from model summaries}
+```{r H2O exp CH4 fluxes  - Create p-value annotations from model summaries}
 
 H2O_CH4_pvals <- map_df(names(H2O_CH4_models), function(st) {
   model <- H2O_CH4_models[[st]]$model                # Extract the lm object
@@ -519,7 +521,7 @@ H2O_CH4_pvals <- map_df(names(H2O_CH4_models), function(st) {
 ```{r H2O exp CH4 fluxes  - plot CH4 conc means and lm stats results}
 
 # Plot
-H2O_CH4_fluxes_means <- ggplot(summ_exp, aes(x = H2O_treatment, y = ng_CH4_per_g_dry_soil_per_day_mean, fill = H2O_treatment)) +
+H2O_CH4_fluxes_means <- ggplot(summ_exp2, aes(x = H2O_treatment, y = ng_CH4_per_g_dry_soil_per_day_mean, fill = H2O_treatment)) +
   geom_col(position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se,
                     ymax = ng_CH4_per_g_dry_soil_per_day_mean + ng_CH4_per_g_dry_soil_per_day_se),
@@ -537,7 +539,7 @@ H2O_CH4_fluxes_means <- ggplot(summ_exp, aes(x = H2O_treatment, y = ng_CH4_per_g
     data = H2O_CH4_pvals, 
     aes(x = 1, 
         # y = 7,
-        y = max(summ_exp$ng_CH4_per_g_dry_soil_per_day_mean)*18, 
+        y = max(summ_exp2$ng_CH4_per_g_dry_soil_per_day_mean)*18, 
         label = label),
     inherit.aes = FALSE) +
   facet_wrap2(~soil_type, strip = strip_themed(
@@ -570,7 +572,7 @@ ggsave(plot = H2O_CH4_fluxes_means, filename = "figures/pH/fluxes/H2O_CH4_fluxes
 ```{r H2O exp CO2 fluxes - linear models}
 
 # Fit models for each soil_type and store results
-H2O_CO2_models <- exp_jars %>% 
+H2O_CO2_models <- exp_jars2 %>% 
   group_by(soil_type) %>%                                # group data by soil type
   group_map(~ {                                           # apply function to each group
     lm_fit <- lm(ug_CO2_per_g_dry_soil_per_day ~ H2O_treatment, data = .x)   # fit linear model for CO2 initial ppm vs pH_treatment
@@ -652,7 +654,7 @@ H2O_CO2_pvals <- map_df(names(H2O_CO2_models), function(st) {
 ```{r H2O exp CO2 fluxes  - plot CO2 conc means and lm stats results}
 
 # Plot
-H2O_CO2_fluxes_means <- ggplot(summ_exp, aes(x = H2O_treatment, y = ug_CO2_per_g_dry_soil_per_day_mean, fill = H2O_treatment)) +
+H2O_CO2_fluxes_means <- ggplot(summ_exp2, aes(x = H2O_treatment, y = ug_CO2_per_g_dry_soil_per_day_mean, fill = H2O_treatment)) +
   geom_col(position = "dodge", color = "black") +
   geom_errorbar(aes(ymin = ug_CO2_per_g_dry_soil_per_day_mean - ug_CO2_per_g_dry_soil_per_day_se,
                     ymax = ug_CO2_per_g_dry_soil_per_day_mean + ug_CO2_per_g_dry_soil_per_day_se),
@@ -670,7 +672,7 @@ H2O_CO2_fluxes_means <- ggplot(summ_exp, aes(x = H2O_treatment, y = ug_CO2_per_g
     data = H2O_CO2_pvals, 
     aes(x = 1, 
         # y = 7,
-        y = max(summ_exp$ug_CO2_per_g_dry_soil_per_day_mean)*1.15, 
+        y = max(summ_exp2$ug_CO2_per_g_dry_soil_per_day_mean)*1.15, 
         label = label),
     inherit.aes = FALSE) +
   facet_wrap2(~soil_type, strip = strip_themed(
@@ -700,37 +702,7 @@ ggsave(plot = H2O_CO2_fluxes_means, filename = "figures/pH/fluxes/H2O_CO2_fluxes
 
 ## pH Experiment with wet controls from H2O Experiment
 
-```{r pH & H2O - reading in and cleaning data}
-
-# flux data 
-raw1 <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.07.25.xlsx",
-                          sheet = "CH4_CO2_fluxes_to_stat")
-
-data1 <- raw1 %>%
-  mutate(
-    # Convert to factors and relevel
-    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),
-    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8")),
-    rep          = factor(rep, levels = c("1", "2", "3", "4", "5")),
-    jar_type     = as.factor(jar_type)
-  )
-
-# flux data 
-raw2 <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.14.25.xlsx",
-                          sheet = "CH4_CO2_fluxes_to_stat")
-
-data2 <- raw2 %>%
-  mutate(
-    # Convert to factors and relevel
-    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),
-    H2O_treatment = factor(H2O_treatment, levels = c("no","yes")),
-    rep          = factor(rep, levels = c("1", "2", "3", "4", "5")),
-    jar_type     = as.factor(jar_type)
-  )
-
-```
-
-```{r pH - summarizing data for CH4 & CO2 flux figures}
+```{r pH & H2O - summarizing data for CH4 & CO2 flux figures}
 
 data1 <- data1 %>% 
     filter(
@@ -795,73 +767,93 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 # Fit models for each soil_type and store results
 pH_H2O_CH4_models <- exp_jars %>% 
   group_by(soil_type) %>%                                # group data by soil type
-  group_map(~ {                                           # apply function to each group
-    lm_fit <- lm(ng_CH4_per_g_dry_soil_per_day ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
-    list(                                                 # return both model and emmeans results
-      model = lm_fit,                                     # store lm model
-      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment, adjust = "none", level = 0.90)  # get pairwise emmeans for pH_treatment and specify 90% CI
-    )
-  }, keep = TRUE) %>%                                     # keep soil_type info in output
-  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+  group_map(~ {                                           # apply the following code to each soil_type group
+    lm_fit <- lm(ng_CH4_per_g_dry_soil_per_day ~ pH_treatment, data = .x)   # fit a linear model predicting CH4 flux from pH_treatment for this soil type
+    list(                                                 # return a list containing model and emmeans results
+      model = lm_fit,                                     # store the fitted linear model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment,  # compute estimated marginal means for pH_treatment and all pairwise comparisons
+                        adjust = "none",                  # no multiple-comparison adjustment
+                        level = 0.90)                     # set confidence level to 90%
+    )                         
+  }, keep = TRUE) %>%                                     # keep the grouping variable (soil_type) in the output list
+  set_names(unique(exp_jars$soil_type))                   # assign list element names based on unique soil_type values
 
-# all model output 
-# CH4_models
+pH_H2O_CH4_models # print all model output
 
 # Unamended soils model results 
-summary(pH_H2O_CH4_models$Unamended$model) # model summary 
+summary(pH_H2O_CH4_models$Unamended$model) # display model summary (coefficients, R², etc.) for Unamended soils
 anova(pH_H2O_CH4_models$Unamended$model) # ANOVA table 
-pH_H2O_CH4_models$Unamended$emmeans # returns both emmeans and pairwise objects              
+pH_H2O_CH4_models$Unamended$emmeans # display emmeans and pairwise comparison results for Unamended soils             
 
 # Unamended soils model results 
-summary(pH_H2O_CH4_models$`Ground Rock`$model) # model summary 
-anova(pH_H2O_CH4_models$`Ground Rock`$model) # ANOVA table 
-pH_H2O_CH4_models$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+summary(pH_H2O_CH4_models$`Ground Rock`$model) # display model summary for Ground Rock soils
+anova(pH_H2O_CH4_models$`Ground Rock`$model) # produce ANOVA table for Ground Rock soils model
+pH_H2O_CH4_models$`Ground Rock`$emmeans # display emmeans and pairwise comparison results for Ground Rock soils              
 
 ```
-
 
 ```{r  pH & H2O exps CH4 fluxes - post-hoc pairwise comparisons and dynamically generate letters }
 
 # Generate compact letter displays dynamically for each soil type
 pH_H2O_CH4_letters <- map_df(names(pH_H2O_CH4_models), function(st) {
   
-  # Get the fitted model for this soil type
+  # Get the fitted model for this soil type (e.g., "Unamended" or "Ground Rock")
   model <- pH_H2O_CH4_models[[st]]$model
   
-  # Compute emmeans afresh
-  emm <- emmeans(model, pairwise ~ pH_treatment, adjust = "none", level = 0.90)
+  # Compute estimated marginal means (emmeans) and pairwise comparisons again
+  emm <- emmeans(model, pairwise ~ pH_treatment, 
+                 adjust = "none", # no p-value adjustment for multiple comparisons
+                 level = 0.90)    # use 90% confidence intervals
   
-  # Generate compact letter display
-  cld_df <- cld(emm, adjust = "none", Letters = letters, alpha = 0.10, sort = FALSE)
+  # Generate compact letter display (CLD)
+  # - CLD assigns letters (a, b, c, ...) to treatment means
+  # - Treatments sharing a letter are *not significantly different*
+  # - Different letters indicate *significant differences* (α = 0.10 here)
+  cld_df <- cld(emm, 
+                adjust = "none",     # no adjustment for multiple testing
+                Letters = letters,   # use lowercase letters for labeling
+                alpha = 0.10,        # significance level 0.10 (matches 90% CI)
+                sort = FALSE)        # keep treatments in their original order (i.e., don't assign "a" to the estimated mean with the largest magnitude (which is the default setting))
   
   # Prepare for plotting
-  cld_df <- as.data.frame(cld_df)
-  cld_df$soil_type <- st
-  cld_df$letters <- cld_df$.group
+  cld_df <- as.data.frame(cld_df)    # Convert CLD output to a data frame for easier manipulation
+  cld_df$soil_type <- st             # Add soil type label to each row so you know which soil_type it belongs to
+  cld_df$letters <- cld_df$.group    # Copy the assigned letter group (stored in `.group`) to a cleaner column name
   
-  cld_df[, c("soil_type", "pH_treatment", "letters")]
+  cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns for plotting or merging later
 }) %>% 
   mutate(
+    # Ensure consistent factor ordering for plotting and joining later
     soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),  
     pH_treatment = factor(pH_treatment, levels = c("Wet control", "5", "7", "8"))  
   )
 
+# Join the letter groupings back to your summary dataset for plotting or reporting
 summ_exp_letters <- summ_exp %>%
   left_join(pH_H2O_CH4_letters,
-            by = c("soil_type", "pH_treatment"))
+            by = c("soil_type", "pH_treatment")) # join based on soil type and pH treatment
 
 ```
 
 ```{r pH exp CH4 fluxes  - Create p-value annotations from model summaries}
 
+# Extract and format p-values from each soil_type model for plotting or labeling
 pH_H2O_CH4_pvals <- map_df(names(pH_H2O_CH4_models), function(st) {
-  model <- pH_H2O_CH4_models[[st]]$model                # Extract the lm object
-  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  
+  # Extract the fitted linear model object for this soil type
+  model <- pH_H2O_CH4_models[[st]]$model
+  
+  # Run ANOVA on the model and extract the p-value for the first term (pH_treatment)
+  # - anova(model) returns a table with F-values and p-values for each predictor
+  pval  <- anova(model)$`Pr(>F)`[1]  # - `$'Pr(>F)'[1]` extracts the first p-value (for pH_treatment)
+  
+  # Create a one-row data frame for this soil type
   data.frame(
-    soil_type = st,                              # Use the soil type name from the list
-    label = paste0("p = ", signif(pval, 2))     # Format p-value
+    soil_type = st,                              # store the soil type name
+    label = paste0("p = ", signif(pval, 2))      # create a text label with the rounded p-value (2 significant digits)
   )
 }) %>% 
+  # Convert soil_type to an ordered factor for consistent plotting
   mutate(
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
@@ -870,32 +862,32 @@ pH_H2O_CH4_pvals <- map_df(names(pH_H2O_CH4_models), function(st) {
 
 ```{r pH exp CH4 fluxes  - plot CH4 conc means and lm stats results}
 
-# Plot
-pH_H2O_CH4_fluxes_means <- ggplot(summ_exp_letters, 
-                                  aes(x = pH_treatment, 
-                                      y = ng_CH4_per_g_dry_soil_per_day_mean, 
-                                      fill = pH_treatment)) +
-  geom_col(position = "dodge", color = "black") +
-  geom_errorbar(aes(ymin = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se,
-                    ymax = ng_CH4_per_g_dry_soil_per_day_mean + ng_CH4_per_g_dry_soil_per_day_se),
-                width = 0.25, 
-                size = 0.3) +
-  geom_text(aes(label = letters,
-                y = ng_CH4_per_g_dry_soil_per_day_mean - 1.3*ng_CH4_per_g_dry_soil_per_day_se),
-            position = position_dodge(width = 0.8),
-            vjust = 0) +
-  facet_wrap2(~soil_type, strip = strip_themed(
-    background_x = elem_list_rect(fill = rep("gray95", 2)),
-    text_x = elem_list_text(color = rep("black", 2))
+# --- Plot mean CH4 fluxes with error bars and post-hoc pairwise significance letters ---
+pH_H2O_CH4_fluxes_means <- ggplot(summ_exp_letters,                              # use summary data joined with CLD letters
+                                  aes(x = pH_treatment,                          # x-axis = pH treatment levels
+                                      y = ng_CH4_per_g_dry_soil_per_day_mean,    # y-axis = mean CH4 flux
+                                      fill = pH_treatment)) +                    # fill bars by pH treatment
+  geom_col(position = "dodge", color = "black") +                                # draw bar plot with black outlines
+  geom_errorbar(aes(ymin = ng_CH4_per_g_dry_soil_per_day_mean - ng_CH4_per_g_dry_soil_per_day_se,  # setting y max height for SE error bar 
+                    ymax = ng_CH4_per_g_dry_soil_per_day_mean + ng_CH4_per_g_dry_soil_per_day_se), # setting y min height for SE error bar 
+                width = 0.25,                                                    # width of error bar caps
+                size = 0.3) +                                                    # thickness of error bars
+  geom_text(aes(label = letters,                                                 # add significance letters using the letters column 
+                y = ng_CH4_per_g_dry_soil_per_day_mean - 1.3*ng_CH4_per_g_dry_soil_per_day_se), # slightly below error bars for readability
+            position = position_dodge(width = 0.8),                              # align with bar positions
+            vjust = 0) +                                                         # text vertical adjustment
+  facet_wrap2(~soil_type,                                                        # create separate panels for each soil type
+              strip = strip_themed(                                              # customize facet label appearance
+                background_x = elem_list_rect(fill = rep("gray95", 2)),          # specifying color of background of facet header 
+                text_x = elem_list_text(color = rep("black", 2))                 # specifying color of text of facet header 
   )) +
-  scale_fill_manual(values = c("darkgrey", "#66c2a5", "#fc8d62", "#8da0cb")) +
-  theme_bw() +
-  labs(title = (bquote(CH[4]~Fluxes~with~pH~Treatment) ),
-       x = "pH Treatment",
-       # y = bquote(CH[4]~(ppm)),
-       fill = "Soil pH Treatment") +
-  ylab(bquote(ng~CH[4]~g~soil^-1~day^-1) ) +
-  theme(
+  scale_fill_manual(values = c("darkgrey", "#66c2a5", "#fc8d62", "#8da0cb")) +   # custom bar colors
+  theme_bw() +                                                                   # use a clean black-and-white theme
+  labs(title = (bquote(CH[4]~Fluxes~with~pH~Treatment) ),                        # plot title with subscript formatting (CH₄)
+       x = "pH Treatment",                                                       # x-axis label
+       fill = "Soil pH Treatment") +                                             # legend title
+  ylab(bquote(ng~CH[4]~g~soil^-1~day^-1) ) +                                     # y-axis label with scientific units
+  theme(                                                                         # adjust text and title sizes for clarity
     plot.title = element_text(size = 20),
     axis.title = element_text(size = 14),
     axis.text = element_text(size = 12),
@@ -903,8 +895,14 @@ pH_H2O_CH4_fluxes_means <- ggplot(summ_exp_letters,
     legend.text = element_text(size = 12)
   ) 
 
+# Display the plot
 pH_H2O_CH4_fluxes_means
 
+# Save plot as a PNG file with defined size to specified local file location 
 ggsave(plot = pH_H2O_CH4_fluxes_means, filename = "figures/pH/fluxes/pH_AND_H2O_wetcontrol_CH4_fluxes_means_UNonly.png", width = 8, height = 5)
 
 ```
+
+### CO2 fluxes (WITH wet control)
+
+
