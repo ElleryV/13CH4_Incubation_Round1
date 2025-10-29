@@ -35,6 +35,7 @@ library(purrr)
 library(emmeans)
 # library(multcomp)        # not strictly required, but helpful
 library(multcompView)    # supplies helper functions used by cld()
+library(wesanderson)
 
 ```
 
@@ -104,7 +105,7 @@ Plot <- ggplot(data = summary_fig,
   # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH treatment and soil type") ) +
   ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")" ) ) +
   labs(x = "pH Treatment") +
-  ggtitle(bquote("Initial and final" ^13*"C isotope ratios by pH Treatment") ) +
+  # ggtitle(bquote("Initial and final" ^13*"C isotope ratios by pH Treatment") ) +
   theme_bw() +
   geom_errorbar(data = summary_fig, 
                 aes(x=pH_treatment, ymin=mean-sd, ymax=mean+sd, color = timepoint), width=0.25, linewidth=.4) +
@@ -113,7 +114,8 @@ Plot <- ggplot(data = summary_fig,
   # aes(x = pH_treatment, y = letter_y, label = letters),
   # inherit.aes = FALSE) +
   # scale_color_brewer(palette = "RdYlBu") +
-  scale_color_manual(values = c("#7b3294","#008837") ) +
+  # scale_color_manual(values = c("#7b3294","#008837") ) +      
+  scale_color_manual(values=wes_palette("Darjeeling1", 2) ) +
   theme(
   plot.title = element_text(size = 20),        # Title text size
   axis.title.x = element_text(size = 14),      # X-axis title text size
@@ -127,7 +129,7 @@ Plot <- ggplot(data = summary_fig,
 
 Plot
 
-ggsave(Plot, filename = "figures/isotopes/pHwet.png", width = 8, height = 5)
+ggsave(Plot, filename = "figures/isotopes/pH.png", width = 8, height = 5)
 
 ```
 

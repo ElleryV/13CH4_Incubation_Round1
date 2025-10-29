@@ -20,9 +20,13 @@ knitr::opts_chunk$set(echo = TRUE)
 # pH Experiment CH4 & CO2 Concentration Analysis 
 
 **Script Notes**
-I also repeated this analysis for the concentration values but normalized by incubation duration time (days). It did not change the significance of the results for timepoint 2, but the results were a little different for timepoint 1, but made less sense. So i am just going with raw concentration values because I think they're more directly interpretable. 
-Time normalized concentration analysis are now archived in old section of code (unless i really decide i don't need later and decide to delete.)
-Also moved code to OLD for combining the T1 & T2 plots into one figure because we decided we didn't want to present in 4 panel way because didn't want to encourage the comparisons between T1 and T2 concentrations within soil type. 
+
+PREVIOUS ANALYSIS ATTEMPTS:
+1) I also repeated this analysis for the concentration values but normalized by incubation duration time (days). It did not change the significance of the results for timepoint 2, but the results were a little different for timepoint 1, but made less sense. So i am just going with raw concentration values because I think they're more directly interpretable. Time normalized concentration analysis are now archived in old section of code (unless i really decide i don't need later and decide to delete.)
+2) Also moved code to OLD for combining the T1 & T2 plots into one figure because we decided we didn't want to present in 4 panel way because didn't want to encourage the comparisons between T1 and T2 concentrations within soil type. 
+3) I made figures / did the analysis combining the pH treatments with the wet control from the H2O experiment, but the concentrations were so much lower for the wet control jars. The comparison didn't really make sense. So moved this code to the OLD section. 
+4) Lastly, I'm going to do the concentration analysis including the dry control to double check what that looks like before committing to just dropping the dry control and moving forward with the 5, 7 & 8 treatments 
+
 
 ## Set up 
 ```{r loading libraries}
@@ -38,13 +42,14 @@ library(purrr)
 library(emmeans)
 library(multcomp)        # not strictly required, but helpful
 library(multcompView)    # supplies helper functions used by cld()
+library(wesanderson)
 
 ```
 
 ```{r reading in and cleaning data}
 
 # concentration data 
-raw <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.07.25.xlsx",
+raw <- readxl::read_xlsx("data/EV_pH_13CH4Inc_CH4_CO2_10.21.25.xlsx",
                           sheet = "CH4_CO2_conc_results")
 
 data <- raw[1:46,1:18]
@@ -76,7 +81,7 @@ data <- data %>%
 
 # CH4 concentration analyses (without dry control)
 
-```{r CH4 - summarizing data for concentration figures (initial & final) }
+```{r CH4 - summarizing data for CH4 concentration figures (initial & final) }
 
 # Selecting only the experimental jars to include in the figure AND removing dry control jars 
 exp_jars <- data %>%
@@ -124,8 +129,9 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 
 ## Timepoint 1 (initial)
 
-```{r TIMEPOINT 1 - linear models}
+```{r TIMEPOINT 1 CH4 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting}
 
+# 1) linear models
 # Fit models for each soil_type and store results
 CH4_models_I <- exp_jars %>% 
   group_by(soil_type) %>%                                # group data by soil type
@@ -151,11 +157,7 @@ summary(CH4_models_I$`Ground Rock`$model) # model summary
 anova(CH4_models_I$`Ground Rock`$model) # ANOVA table 
 CH4_models_I$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
 
-
-```
-
-```{r TIMEPOINT 1 - post-hoc pairwise comparisons and dynamically generate letters}
-
+# 2) post-hoc pairwise comparisons and dynamically generate letters
 # Generate compact letter display for each soil type
 CH4_letters_I <- map_df(names(CH4_models_I), function(st) {
   emmeans_res <- CH4_models_I[[st]]$emmeans$emmeans  # Extract emmeans table
@@ -171,26 +173,7 @@ CH4_letters_I <- map_df(names(CH4_models_I), function(st) {
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r Quick summary:}
-# 🧠 Quick summary:
-# 
-# map_df() → iterates over all soil types and combines results into one data frame automatically
-# 
-# emmeans_res → pulls the estimated marginal means table for the current soil type
-# 
-# cld() → computes compact letters showing which treatment means are statistically different
-# 
-# mutate(soil_type = st) → adds soil type back as a column since cld() output doesn’t include it
-# 
-# select() → keeps only the columns needed for plotting: soil_type, treatment, and letters
-# 
-# Final mutate() → reorders factor levels so plots always show the treatments and soils in the correct order
-
-```
-
-```{r TIMEPOINT 1 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
 
 CH4_letters_I <- CH4_letters_I %>%
   left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_INITIAL_mean, se_CH4_ppm_INITIAL),
@@ -205,10 +188,8 @@ CH4_letters_I <- CH4_letters_I %>%
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 1 - Create p-value annotations from model summaries}
-
+# 3) 
+# Create p-value annotations from model summaries
 CH4_pvals_I <- map_df(names(CH4_models_I), function(st) {
   model <- CH4_models_I[[st]]$model                # Extract the lm object
   pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
@@ -221,9 +202,8 @@ CH4_pvals_I <- map_df(names(CH4_models_I), function(st) {
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
 
-```
 
-```{r TIMEPOINT 1 - plot CH4 conc means and lm stats results}
+# 4) Plot CH4 conc means and lm stats results
 
 # Plot
 CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_mean, fill = pH_treatment)) +
@@ -270,16 +250,13 @@ CH4_conc_means_I
 
 ggsave(plot = CH4_conc_means_I, filename = "figures/pH/pH_CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
 
-# removing objects initial specific 
-
-# rm(CH4_models,CH4_letters,CH4_pvals)
-
 ```
 
 ## Timepoint 2 (final)
 
-```{r TIMEPOINT 2 - linear models}
+```{r TIMEPOINT 2 CH4 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting }
 
+# 1) linear models
 # Fit models for each soil_type and store results
 CH4_models_F <- exp_jars %>% 
   group_by(soil_type) %>%                                # group data by soil type
@@ -305,11 +282,7 @@ summary(CH4_models_F$`Ground Rock`$model) # model summary
 anova(CH4_models_F$`Ground Rock`$model) # ANOVA table 
 CH4_models_F$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
 
-
-```
-
-```{r TIMEPOINT 2 - post-hoc pairwise comparisons and dynamically generate letters}
-
+# 2) post-hoc pairwise comparisons and dynamically generate letters
 # Generate compact letter display for each soil type
 CH4_letters_F <- map_df(names(CH4_models_F), function(st) {
   emmeans_res <- CH4_models_F[[st]]$emmeans$emmeans  # Extract emmeans table
@@ -325,10 +298,7 @@ CH4_letters_F <- map_df(names(CH4_models_F), function(st) {
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8") )  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 2 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
-
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
 CH4_letters_F <- CH4_letters_F %>%
   left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_FINAL_mean, se_CH4_ppm_FINAL),
             by = c("soil_type", "pH_treatment")) %>%
@@ -341,10 +311,8 @@ CH4_letters_F <- CH4_letters_F %>%
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
 
-```
 
-```{r TIMEPOINT 2 - Create p-value annotations from model summaries}
-
+# 3) Create p-value annotations from model summaries
 CH4_pvals_F <- map_df(names(CH4_models_F), function(st) {
   model <- CH4_models_F[[st]]$model                # Extract the lm object
   pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
@@ -357,10 +325,8 @@ CH4_pvals_F <- map_df(names(CH4_models_F), function(st) {
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
 
-```
 
-```{r TIMEPOINT 2 - plot CH4 conc means and lm stats results}
-
+# 4) plot CH4 conc means and lm stats results
 # Plot
 CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mean, fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
@@ -406,15 +372,11 @@ CH4_conc_means_F
 
 ggsave(plot = CH4_conc_means_F, filename = "figures/pH/pH_CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
 
-# removing objects initial specific 
-
-# rm(CH4_models,CH4_letters,CH4_pvals)
-
 ```
 
 # CO2 concentration analyses (without dry control)
 
-```{r CO2 - summarizing data for concentration figures (initial & final) }
+```{r CO2 - summarizing data for CO2 concentration figures (initial & final) }
 
 # Selecting only the experimental jars to include in the figure AND removing dry control jars 
 exp_jars <- data %>%
@@ -461,8 +423,9 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 
 ## Timepoint 1 (initial)
 
-```{r TIMEPOINT 1 - linear models}
+```{r TIMEPOINT 1 CO2 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting}
 
+# 1) linear models
 # Fit models for each soil_type and store results
 CO2_models_I <- exp_jars %>% 
   group_by(soil_type) %>%                                # group data by soil type
@@ -488,11 +451,7 @@ summary(CO2_models_I$`Ground Rock`$model) # model summary
 anova(CO2_models_I$`Ground Rock`$model) # ANOVA table 
 CO2_models_I$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
 
-
-```
-
-```{r TIMEPOINT 1 - post-hoc pairwise comparisons and dynamically generate letters}
-
+# 2) post-hoc pairwise comparisons and dynamically generate letters
 # Generate compact letter display for each soil type
 CO2_letters_I <- map_df(names(CO2_models_I), function(st) {
   emmeans_res <- CO2_models_I[[st]]$emmeans$emmeans  # Extract emmeans table
@@ -508,10 +467,7 @@ CO2_letters_I <- map_df(names(CO2_models_I), function(st) {
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 1 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
-
+# dynamically assign posthoc pairwise letter positions based on max value per soil type}
 CO2_letters_I <- CO2_letters_I %>%
   left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CO2_ppm_INITIAL_mean, se_CO2_ppm_INITIAL),
             by = c("soil_type", "pH_treatment")) %>%
@@ -525,10 +481,7 @@ CO2_letters_I <- CO2_letters_I %>%
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 1 - Create p-value annotations from model summaries}
-
+# 3) Create p-value annotations from model summaries
 CO2_pvals_I <- map_df(names(CO2_models_I), function(st) {
   model <- CO2_models_I[[st]]$model                # Extract the lm object
   pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
@@ -541,10 +494,7 @@ CO2_pvals_I <- map_df(names(CO2_models_I), function(st) {
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
 
-```
-
-```{r TIMEPOINT 1 - plot CH4 conc means and lm stats results}
-
+# 4) plot CH4 conc means and lm stats results
 # Plot
 CO2_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CO2_ppm_INITIAL_mean, fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
@@ -591,17 +541,13 @@ CO2_conc_means_I
 
 ggsave(plot = CO2_conc_means_I, filename = "figures/pH/pH_CO2_conc_INITIAL_mean_yvary.png", width = 8.5, height = 5)
 
-# removing objects initial specific 
-
-# rm(CO2_models,CO2_letters,CO2_pvals)
-
 ```
 
+## Timepoint 2 (final)
 
-## Timepoint 2 (FINAL)
+```{r TIMEPOINT 2 CO2 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting}
 
-```{r TIMEPOINT 2 - linear models}
-
+# 1) linear models
 # Fit models for each soil_type and store results
 CO2_models_F <- exp_jars %>% 
   group_by(soil_type) %>%                                # group data by soil type
@@ -627,11 +573,7 @@ summary(CO2_models_F$`Ground Rock`$model) # model summary
 anova(CO2_models_F$`Ground Rock`$model) # ANOVA table 
 CO2_models_F$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
 
-
-```
-
-```{r TIMEPOINT 2 - post-hoc pairwise comparisons and dynamically generate letters}
-
+# 2) post-hoc pairwise comparisons and dynamically generate letters
 # Generate compact letter display for each soil type
 CO2_letters_F <- map_df(names(CO2_models_F), function(st) {
   emmeans_res <- CO2_models_F[[st]]$emmeans$emmeans  # Extract emmeans table
@@ -647,10 +589,7 @@ CO2_letters_F <- map_df(names(CO2_models_F), function(st) {
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 2 - dynamically assign posthoc pairwise letter positions based on max value per soil type}
-
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
 CO2_letters_F <- CO2_letters_F %>%
   left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CO2_ppm_FINAL_mean, se_CO2_ppm_FINAL),
             by = c("soil_type", "pH_treatment")) %>%
@@ -664,10 +603,7 @@ CO2_letters_F <- CO2_letters_F %>%
     pH_treatment = factor(pH_treatment, levels = c("5", "7", "8"))  # Relevel pH_treatment
   )
 
-```
-
-```{r TIMEPOINT 2 - Create p-value annotations from model summaries}
-
+# 3) Create p-value annotations from model summaries
 CO2_pvals_F <- map_df(names(CO2_models_F), function(st) {
   model <- CO2_models_F[[st]]$model                # Extract the lm object
   pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
@@ -680,10 +616,7 @@ CO2_pvals_F <- map_df(names(CO2_models_F), function(st) {
     soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
   )
 
-```
-
-```{r TIMEPOINT 2 - plot CH4 conc means and lm stats results}
-
+# 4) plot CO2 conc means and lm stats results
 # Plot
 CO2_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CO2_ppm_FINAL_mean, fill = pH_treatment)) +
   geom_col(position = "dodge", color = "black") +
@@ -729,14 +662,671 @@ CO2_conc_means_F
 
 ggsave(plot = CO2_conc_means_F, filename = "figures/pH/pH_CO2_conc_FINAL_mean.png", width = 8.5, height = 5)
 
-# removing objects FINAL specific 
+```
 
-# rm(CO2_models,CO2_letters,CO2_pvals)
+
+# CH4 concentration analyses (WITH DRY control)
+
+```{r CH4 - summarizing data for CH4 concentration figures (initial & final) }
+
+# Selecting only the experimental jars to include in the figure AND removing dry control jars 
+exp_jars <- data %>%
+  filter(
+    jar_type == "Exp"
+  )
+
+summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forward
+  group_by(soil_type, pH_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
+  # All subsequent summary operations will be performed within these groups
+ 
+   summarise(
+    across(
+      c(CH4_ppm_INITIAL, CH4_ppm_FINAL, CH4_ppm_I_timenorm, CH4_ppm_F_timenorm),  # Select the numeric columns to summarize: initial and final CH4 ppm
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),  # Compute mean, ignoring NAs
+        sd   = ~ sd(.x, na.rm = TRUE),    # Compute standard deviation, ignoring NAs
+        n    = ~ n()                      # Count number of rows in the group
+      ),
+      .names = "{.col}_{.fn}"  
+      # Automatically name the new summary columns using the pattern:
+      # original column name + "_" + function name
+      # e.g., CH4_ppm_INITIAL_mean, CH4_ppm_FINAL_sd
+    ),
+    .groups = "drop"  # Ungroup the data after summarising so further operations are not grouped
+  ) %>% 
+  
+  # Calculate standard error and relevel factors
+  mutate(
+    se_CH4_ppm_INITIAL = CH4_ppm_INITIAL_sd / sqrt(CH4_ppm_INITIAL_n),  # Standard error = SD / sqrt(n) for initial CH4
+    se_CH4_ppm_FINAL   = CH4_ppm_FINAL_sd / sqrt(CH4_ppm_FINAL_n),  # Standard error = SD / sqrt(n) for final CH4
+    se_CH4_ppm_I_timenorm   = CH4_ppm_I_timenorm_sd / sqrt(CH4_ppm_I_timenorm_n),
+    se_CH4_ppm_F_timenorm   = CH4_ppm_F_timenorm_sd / sqrt(CH4_ppm_F_timenorm_n),
+    
+    # Convert factors to ordered factors with specific levels
+    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),  
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))  
+  )
+
+```
+
+## Timepoint 1 (initial)
+
+```{r TIMEPOINT 1 CH4 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting}
+
+# 1) linear models
+# Fit models for each soil_type and store results
+CH4_models_I <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CH4_ppm_INITIAL ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CH4_models
+
+# Unamended soils model results 
+summary(CH4_models_I$Unamended$model) # model summary 
+anova(CH4_models_I$Unamended$model) # ANOVA table 
+CH4_models_I$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CH4_models_I$`Ground Rock`$model) # model summary 
+anova(CH4_models_I$`Ground Rock`$model) # ANOVA table 
+CH4_models_I$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+CH4_letters_I <- map_df(names(CH4_models_I), function(st) {
+  emmeans_res <- CH4_models_I[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
+
+CH4_letters_I <- CH4_letters_I %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_INITIAL_mean, se_CH4_ppm_INITIAL),
+            by = c("soil_type", "pH_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CH4_ppm_INITIAL_mean + se_CH4_ppm_INITIAL + 0.05*max(CH4_ppm_INITIAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# 3) 
+# Create p-value annotations from model summaries
+CH4_pvals_I <- map_df(names(CH4_models_I), function(st) {
+  model <- CH4_models_I[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+
+# 4) Plot CH4 conc means and lm stats results
+
+# Plot
+CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_mean, fill = pH_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CH4_ppm_INITIAL_mean - se_CH4_ppm_INITIAL,
+                    ymax = CH4_ppm_INITIAL_mean + se_CH4_ppm_INITIAL),
+                width = 0.25, size = 0.3) +
+  geom_text(
+    data = CH4_letters_I, 
+    aes(x = pH_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = CH4_pvals_I, 
+    aes(x = 1, 
+        y = 7.3,
+        # y = max(summ_exp$CH4_ppm_INITIAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  # scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
+  scale_fill_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values=wes_palette("Darjeeling2", 4) ) +
+  theme_bw() +
+  labs(title = bquote(CH[4]~Concentrations~Timepoint~1),
+       x = "pH Treatment",
+       y = bquote(CH[4]~(ppm)),
+       fill = "Soil pH Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) +
+  ylim(0,7.5)
+
+CH4_conc_means_I
+
+ggsave(plot = CH4_conc_means_I, filename = "figures/pH/concentrations/pH_CH4_conc_INITIAL_drycontrol.png", width = 8.5, height = 5)
+
+```
+
+## Timepoint 2 (final)
+
+```{r TIMEPOINT 2 CH4 - 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting }
+
+# 1) linear models
+# Fit models for each soil_type and store results
+CH4_models_F <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CH4_ppm_FINAL ~ pH_treatment, data = .x)   # fit linear model for CH4 FINAL ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CH4_models
+
+# Unamended soils model results 
+summary(CH4_models_F$Unamended$model) # model summary 
+anova(CH4_models_F$Unamended$model) # ANOVA table 
+CH4_models_F$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CH4_models_F$`Ground Rock`$model) # model summary 
+anova(CH4_models_F$`Ground Rock`$model) # ANOVA table 
+CH4_models_F$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2) Post-hoc pairwise comparisons and generation of compact letter displays
+#    This code computes Tukey-style group letters (a, b, ab, etc.) for each soil type
+#    after running the CH4 models stored in CH4_models_F.
+
+CH4_letters_F <- map_df(names(CH4_models_F), function(st) {
+  
+  # ---- Step 1: Compute estimated marginal means (EMMs) ----
+  # For each soil type (st), extract its model and calculate means by pH_treatment.
+  emm <- emmeans(CH4_models_F[[st]]$model, ~ pH_treatment)
+  
+  # ---- Step 2: Generate compact letter display (CLD) ----
+  # The CLD groups treatments that are not significantly different (e.g., "a", "ab", "b").
+  cld_df <- multcomp::cld(emm, Letters = letters)
+  
+  # ---- Step 3: Convert to a plain data frame ----
+  # cld() returns an S4 object; converting it allows use of dplyr functions.
+  cld_df <- as.data.frame(cld_df)
+  
+  # ---- Step 4: Select and reorder relevant columns ----
+  # Keep only the treatment name and grouping column, 
+  # and make sure pH_treatment follows the desired left-to-right order.
+  cld_df <- cld_df %>%
+    dplyr::select(pH_treatment, .group) %>%
+    dplyr::mutate(
+      pH_treatment = factor(pH_treatment,
+                            levels = c("Dry control", "5", "7", "8"))
+    ) %>%
+    arrange(pH_treatment)
+  
+  # ---- Step 5: Enforce left-to-right alphabetical letter assignment ----
+  # By default, cld() may assign letters in arbitrary order (e.g., "b" left of "a").
+  # This block forces consistent alphabetical ordering across panels.
+  unique_groups <- unique(cld_df$.group)              # Identify unique letter groups (e.g., "a", "ab", "b")
+  forced_letters <- letters[seq_along(unique_groups)] # Create ordered letters (a, b, c, ...)
+  map_groups <- setNames(forced_letters, unique_groups) # Map original groups to ordered letters
+  cld_df$letters <- map_groups[cld_df$.group]         # Replace with ordered version
+  
+  # ---- Step 6: Add soil type identifier ----
+  # Store the soil type this result came from, so all results can be combined.
+  cld_df$soil_type <- st
+  
+  # ---- Step 7: Keep only the relevant columns ----
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]
+  
+  # Return this table for the current soil type
+  cld_df
+}) %>%
+  # ---- Step 8: Final factor level adjustments ----
+  # Ensure consistent ordering for soil_type and pH_treatment across all combined data.
+  dplyr::mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))
+  )
+
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
+CH4_letters_F <- CH4_letters_F %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_FINAL_mean, se_CH4_ppm_FINAL),
+            by = c("soil_type", "pH_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CH4_ppm_FINAL_mean + se_CH4_ppm_FINAL + 0.075*max(CH4_ppm_FINAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+# 3) Create p-value annotations from model summaries
+CH4_pvals_F <- map_df(names(CH4_models_F), function(st) {
+  model <- CH4_models_F[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 1))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+# 4) plot CH4 conc means and lm stats results
+# Plot
+CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mean, fill = pH_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CH4_ppm_FINAL_mean - se_CH4_ppm_FINAL,
+                    ymax = CH4_ppm_FINAL_mean + se_CH4_ppm_FINAL),
+                width = 0.25, size = 0.3) +
+  geom_text(
+    data = CH4_letters_F, 
+    aes(x = pH_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = CH4_pvals_F, 
+    aes(x = 1, 
+        y = 7,
+        # y = max(summ_exp$CH4_ppm_FINAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  # scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
+  scale_fill_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values=wes_palette("Darjeeling2", 4) ) +
+  theme_bw() +
+  labs(title = bquote(CH[4]~Concentrations~Timepoint~2),
+       x = "pH Treatment",
+       y = bquote(CH[4]~(ppm)),
+       fill = "Soil pH Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) +
+  ylim(0,7.2)
+
+CH4_conc_means_F
+
+ggsave(plot = CH4_conc_means_F, filename = "figures/pH/concentrations/pH_CH4_conc_FINAL_drycontrol.png", width = 8.5, height = 5)
 
 ```
 
 
 # OLD CODE 
+
+# CH4 concentration analyses (WITH WET control)
+
+```{r CH4 - summarizing data for concentration figures (initial & final) }
+
+# pH Experiment 
+# Selecting only the experimental jars to include in the figure AND removing dry control jars 
+exp_jarspH <- data %>%
+  filter(
+    jar_type == "Exp",
+    pH_treatment != "Dry control"
+  ) %>% 
+  dplyr::select(jar_num:sample_code,CH4_ppm_INITIAL:CO2_ppm_FINAL)
+
+# H2O Experiment 
+# concentration data 
+raw <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.21.25.xlsx",
+                          sheet = "CH4_CO2_conc_results")
+data <- raw[1:35,1:18]
+
+data <- data %>%
+  mutate(
+    # Convert to factors and relevel
+    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes") ),
+    rep          = factor(rep, levels = c("1", "2", "3", "4", "5")),
+    jar_type     = as.factor(jar_type),
+    
+    # Convert multiple columns to numeric using across()
+    across(
+      c(CH4_ppm_FINAL, CO2_ppm_FINAL,
+        T0_to_T2_days, T1_to_T2_days, CH4_CV_F),
+      as.numeric),
+    
+    # adding columns for time normalized concentrations 
+    )
+
+exp_jarsH2O <- data %>%
+  filter(
+    jar_type == "Exp",
+    H2O_treatment == "yes" 
+  ) %>% 
+  mutate(H2O_treatment = recode(H2O_treatment, "yes" = "Wet control") ) %>% 
+  rename(pH_treatment = H2O_treatment) %>% 
+  dplyr::select(jar_num:sample_code,CH4_ppm_INITIAL:CO2_ppm_FINAL)
+
+# combining data from pH and H2O experiments 
+exp_jars <- rbind(exp_jarspH,exp_jarsH2O)
+
+summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forward
+  group_by(soil_type, pH_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
+  # All subsequent summary operations will be performed within these groups
+ 
+   summarise(
+    across(
+      c(CH4_ppm_INITIAL, CH4_ppm_FINAL),  # Select the numeric columns to summarize: initial and final CH4 ppm
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),  # Compute mean, ignoring NAs
+        sd   = ~ sd(.x, na.rm = TRUE),    # Compute standard deviation, ignoring NAs
+        n    = ~ n()                      # Count number of rows in the group
+      ),
+      .names = "{.col}_{.fn}"  
+      # Automatically name the new summary columns using the pattern:
+      # original column name + "_" + function name
+      # e.g., CH4_ppm_INITIAL_mean, CH4_ppm_FINAL_sd
+    ),
+    .groups = "drop"  # Ungroup the data after summarising so further operations are not grouped
+  ) %>% 
+  
+  # Calculate standard error and relevel factors
+  mutate(
+    se_CH4_ppm_INITIAL = CH4_ppm_INITIAL_sd / sqrt(CH4_ppm_INITIAL_n),  # Standard error = SD / sqrt(n) for initial CH4
+    se_CH4_ppm_FINAL   = CH4_ppm_FINAL_sd / sqrt(CH4_ppm_FINAL_n),  # Standard error = SD / sqrt(n) for final CH4
+    
+    # Convert factors to ordered factors with specific levels
+    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),  
+    pH_treatment = factor(pH_treatment, levels = c("Wet control","5", "7", "8"))  
+  )
+
+# write_csv(summ_exp,"summarized_data.csv")
+
+
+```
+
+## Timepoint 1 (initial)
+
+```{r 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting }
+
+# 1) making linear models 
+# Fit models for each soil_type and store results
+CH4_models_I <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CH4_ppm_INITIAL ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CH4_models
+
+# Unamended soils model results 
+summary(CH4_models_I$Unamended$model) # model summary 
+anova(CH4_models_I$Unamended$model) # ANOVA table 
+CH4_models_I$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CH4_models_I$`Ground Rock`$model) # model summary 
+anova(CH4_models_I$`Ground Rock`$model) # ANOVA table 
+CH4_models_I$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2a) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+CH4_letters_I <- map_df(names(CH4_models_I), function(st) {
+  emmeans_res <- CH4_models_I[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Wet control","5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# 2b) dynamically assign posthoc pairwise letter positions based on max value per soil type
+CH4_letters_I <- CH4_letters_I %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_INITIAL_mean, se_CH4_ppm_INITIAL),
+            by = c("soil_type", "pH_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CH4_ppm_INITIAL_mean + se_CH4_ppm_INITIAL + 0.05*max(CH4_ppm_INITIAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Wet control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+#  3) Create p-value annotations from model summaries
+CH4_pvals_I <- map_df(names(CH4_models_I), function(st) {
+  model <- CH4_models_I[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+
+# 4) plot CH4 conc means and lm stats results
+# Plot
+CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_mean, fill = pH_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CH4_ppm_INITIAL_mean - se_CH4_ppm_INITIAL,
+                    ymax = CH4_ppm_INITIAL_mean + se_CH4_ppm_INITIAL),
+                width = 0.25, size = 0.3) +
+  geom_text(
+    data = CH4_letters_I, 
+    aes(x = pH_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = CH4_pvals_I, 
+    aes(x = 1, 
+        y = 7,
+        # y = max(summ_exp$CH4_ppm_INITIAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values=wes_palette("Darjeeling2", 4) ) +
+  theme_bw() +
+  labs(title = bquote(CH[4]~Concentrations~Timepoint~1),
+       x = "pH Treatment",
+       y = bquote(CH[4]~(ppm)),
+       fill = "Soil pH Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) +
+  ylim(0,7.2)
+
+CH4_conc_means_I
+
+ggsave(plot = CH4_conc_means_I, filename = "figures/pH/concentrations/pH_CH4_conc_INITIAL_wetcontrol.png", width = 8.5, height = 5)
+
+```
+
+## Timepoint 2 (final)
+
+```{r 1) linear modeling, 2) posthoc pairwise comparison, 3) assigning p-values, and 4) plotting }
+
+# 1) making linear models 
+# Fit models for each soil_type and store results
+CH4_models_F <- exp_jars %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(CH4_ppm_FINAL ~ pH_treatment, data = .x)   # fit linear model for CH4 FINAL ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(exp_jars$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# CH4_models
+
+# Unamended soils model results 
+summary(CH4_models_F$Unamended$model) # model summary 
+anova(CH4_models_F$Unamended$model) # ANOVA table 
+CH4_models_F$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(CH4_models_F$`Ground Rock`$model) # model summary 
+anova(CH4_models_F$`Ground Rock`$model) # ANOVA table 
+CH4_models_F$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2a) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+CH4_letters_F <- map_df(names(CH4_models_F), function(st) {
+  emmeans_res <- CH4_models_F[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Wet control","5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# 2b) dynamically assign posthoc pairwise letter positions based on max value per soil type
+CH4_letters_F <- CH4_letters_F %>%
+  left_join(summ_exp %>% dplyr::select(soil_type, pH_treatment, CH4_ppm_FINAL_mean, se_CH4_ppm_FINAL),
+            by = c("soil_type", "pH_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = CH4_ppm_FINAL_mean + se_CH4_ppm_FINAL + 0.05*max(CH4_ppm_FINAL_mean)
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Wet control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+#  3) Create p-value annotations from model summaries
+CH4_pvals_F <- map_df(names(CH4_models_F), function(st) {
+  model <- CH4_models_F[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+
+# 4) plot CH4 conc means and lm stats results
+# Plot
+CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mean, fill = pH_treatment)) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(aes(ymin = CH4_ppm_FINAL_mean - se_CH4_ppm_FINAL,
+                    ymax = CH4_ppm_FINAL_mean + se_CH4_ppm_FINAL),
+                width = 0.25, size = 0.3) +
+  geom_text(
+    data = CH4_letters_F, 
+    aes(x = pH_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = CH4_pvals_F, 
+    aes(x = 1, 
+        y = 7,
+        # y = max(summ_exp$CH4_ppm_FINAL_mean)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values=wes_palette("Darjeeling2", 4) ) +
+  theme_bw() +
+  labs(title = bquote(CH[4]~Concentrations~Timepoint~2),
+       x = "pH Treatment",
+       y = bquote(CH[4]~(ppm)),
+       fill = "Soil pH Treatment") +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) +
+  ylim(0,7.2)
+
+CH4_conc_means_F
+
+ggsave(plot = CH4_conc_means_F, filename = "figures/pH/concentrations/pH_CH4_conc_FINAL_wetcontrol.png", width = 8.5, height = 5)
+
+```
 
 ## Combining timepoints 1 & 2 into one figrue 
 
@@ -866,7 +1456,6 @@ ggsave(plot = CH4_conc_combined_plot,
 
 
 ```
-
 
 # Time normalized CH4 concentration analyses (without dry control)
 

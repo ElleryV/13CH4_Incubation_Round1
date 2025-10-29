@@ -42,7 +42,7 @@ library(multcompView)    # supplies helper functions used by cld()
 ```{r reading in and cleaning data}
 
 # concentration data 
-raw <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.14.25.xlsx",
+raw <- readxl::read_xlsx("data/EV_H2O_13CH4Inc_CH4_CO2_10.21.25.xlsx",
                           sheet = "CH4_CO2_conc_results")
 
 data <- raw[1:35,1:18]

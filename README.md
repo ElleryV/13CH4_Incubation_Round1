@@ -9,7 +9,7 @@ Repository for data processing and analysis related to my first 13CH4 incubation
 
 1. **CH4_CO2_fluxes.Rmd** - Script to make figures for CH4 and CO2 fluxes for the pH and H2O experiments. (Flux method presented here is T2 minus T1 (not 30 mL sample collection dilution corrected) ). 
 2. **H2O_Relative_CH4Conc_Difference.Rmd** - Script to analyze CH4 and CO2 concentration differences among H2O treatments at the start and end of the incubation. Looking at both raw concentrations and incubation duration time normalized concentrations. 
-3. **Keeling_plots.Rmd** - 
+3. **Keeling_plots.Rmd** - Script to make keeling plots for both pH and H2O experiments to estimate the d13C-CO2 of the microbially-respired CO2
 4. **d13C_analysis.Rmd** - Script to visualize and analyze differences in d13C isotope ratio values for both pH and H2O experiments.
 5. **pH_Relative_CH4Conc_Difference.Rmd** - Script to analyze CH4 and CO2 concentration differences among pH treatments at the start and end of the incubation. Looking at both raw concentrations and incubation duration time normalized concentrations. 
 
