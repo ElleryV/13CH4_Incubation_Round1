@@ -41,6 +41,8 @@ library(wesanderson)
 
 ```{r loading data}
 
+setwd("~/Desktop/Berkeley Life/Cal Grad Program/Dissertation_Research/13CH4_Incubation_Round1")
+
 raw <- readxl::read_xlsx("data/pH_H2O_isotopes.xlsx",sheet = "Sheet1")
 
 # data <- raw %>% 
@@ -49,23 +51,355 @@ raw <- readxl::read_xlsx("data/pH_H2O_isotopes.xlsx",sheet = "Sheet1")
 
 data <- raw %>% 
   filter(jar_type == "Exp") %>% 
-  mutate(soil_type = as.factor(soil_type),
-         pH_treatment = as.factor(pH_treatment),
-         jar_type = as.factor(jar_type),
-         timepoint = as.factor(timepoint),
-         d13C_VPDB_perc = as.numeric(d13C_VPDB_perc)) %>% 
+  mutate(across(c(soil_type, pH_treatment, jar_type, timepoint, experiment), as.factor) ) %>% 
+  mutate(d13C_VPDB_perc = as.numeric(d13C_VPDB_perc)) %>% 
   mutate(timepoint = fct_relevel(timepoint, c("initial","final","final_dilcor","exp_zero"))) 
 
 # removing the 3 jars where SF6 concentrations went down a considerable amount suggesting potential leakage 
 # data <- data %>%
 #   filter(sample_num != 21 & sample_num != 24 & sample_num != 37) 
 
-data <- data %>% 
-  filter(jar_type == "Exp") %>% 
-  filter(pH_treatment == "5" | pH_treatment == "7" | pH_treatment == "8" | pH_treatment == "Wet control" ) %>% 
-  mutate(pH_treatment = fct_relevel(pH_treatment, c("Wet control","5","7","8") ) ) 
+```
+
+```{r pH exp difference stas & figure}
+
+# subsetting data for just pH experiment 
+pH_data <- data %>% 
+  filter(experiment == "pH") %>% 
+  filter(timepoint != "exp_zero") %>% 
+  filter(timepoint != "final_dilcor") %>%
+  filter(experiment == "pH") %>% 
+  mutate(pH_treatment = fct_relevel(pH_treatment, c("Dry control","5","7","8") ) ) %>% 
+  mutate(soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) %>% 
+  select(!sample_id)
+
+# pivoting data to calculate final - initial change in isotope values 
+pH_data <- pH_data %>% 
+  pivot_wider(names_from = timepoint,
+              values_from = d13C_VPDB_perc) %>% 
+  mutate(d13C_diff = final-initial)
+
+# final_d13C_values <- pivot[40:78,8]
+# 
+# all_but_final <- pivot[1:39,1:7]
+# 
+# pH_data_new <- cbind(all_but_final,final_d13C_values)
+
+# summarizing data for figure 
+pH_summary <- pH_data %>% 
+  group_by(soil_type,pH_treatment) %>% 
+  summarise(mean_d13C_diff = mean(d13C_diff),
+            sd = sd(d13C_diff),
+            n = length(d13C_diff),
+            se = sd/n) %>% 
+    mutate(pH_treatment = fct_relevel(pH_treatment, c("Dry control","5","7","8") ) ) %>% 
+    mutate(soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) 
+
+# summarizing data for table in paper
+summary_paper <- pH_data %>% 
+  pivot_longer(cols = c(initial, final),
+               names_to = "variable",
+               values_to = "value") %>% 
+  group_by(soil_type, pH_treatment, variable) %>% 
+  summarise(
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE),
+    n = dplyr::n(),
+    se = sd / n,
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    pH_treatment = fct_relevel(pH_treatment, "Dry control", "5", "7", "8"),
+    soil_type = fct_relevel(soil_type, "Unamended", "Ground Rock")
+  )
+
+write_csv(summary_paper, "data/d13C_summary.csv")
+
+# 1) linear models
+# Fit models for each soil_type and store results
+pH_d13C_model <- pH_data_new %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(d13C_diff ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(pH_data_new$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# pH_d13C_model
+
+# Unamended soils model results 
+summary(pH_d13C_model$Unamended$model) # model summary 
+anova(pH_d13C_model$Unamended$model) # ANOVA table 
+pH_d13C_model$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(pH_d13C_model$`Ground Rock`$model) # model summary 
+anova(pH_d13C_model$`Ground Rock`$model) # ANOVA table 
+pH_d13C_model$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+pH_d13C_letters <- map_df(names(pH_d13C_model), function(st) {
+  emmeans_res <- pH_d13C_model[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
+
+pH_d13C_letters <- pH_d13C_letters %>%
+  left_join(pH_summary %>% dplyr::select(soil_type, pH_treatment, mean_d13C_diff, se),
+            by = c("soil_type", "pH_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    # letter_y = mean_d13C_diff + se + 2.5*max(mean_d13C_diff)
+    letter_y = mean_d13C_diff + 2.25
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treatment = factor(pH_treatment, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# 3) 
+# Create p-value annotations from model summaries
+pH_d13C_pvals <- map_df(names(pH_d13C_model), function(st) {
+  model <- pH_d13C_model[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for pH_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+# 4) Plot d13C difference means and lm stats results
+pH_d13C_diff_plot <- ggplot(pH_summary, aes(x=pH_treatment,y=mean_d13C_diff) ) +
+  geom_point(aes(color=pH_treatment), size = 3 ) +
+  # facet_wrap(~ soil_type) +
+  # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by pH treatment and soil type") ) +
+  ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")"~Change) ) +
+  labs(x = "pH Treatment") +
+  # ggtitle(bquote("Difference between Final and Initial" ^13*"C isotope ratios by pH Treatment") ) +
+  theme_bw() +
+  geom_errorbar(data = pH_summary, aes(x=pH_treatment, 
+                                       ymin=mean_d13C_diff-sd, 
+                                       ymax=mean_d13C_diff+sd, color=pH_treatment), width=0.25, linewidth=.4) +
+  geom_text(
+    data = pH_d13C_letters, 
+    aes(x = pH_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = pH_d13C_pvals, 
+    aes(x = 1.5, 
+        y = max(pH_summary$mean_d13C_diff)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  scale_color_manual(values = c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  theme(
+  plot.title = element_text(size = 17),        # Title text size
+  axis.title.x = element_text(size = 14),      # X-axis title text size
+  axis.title.y = element_text(size = 14),      # Y-axis title text size
+  axis.text.x = element_text(size = 12),       # X-axis text size
+  axis.text.y = element_text(size = 12),       # Y-axis text size
+  legend.title = element_text(size = 14),      # Legend title text size
+  legend.text = element_text(size = 12),        # Legend text size
+  legend.position = "none"
+) 
+
+# saving plot to folder 
+ggsave(plot = pH_d13C_diff_plot, filename = "figures/isotopes/pH_isotope_differences.png", width = 8.5, height = 5)
 
 ```
+
+
+```{r H2O exp difference stas & figure}
+
+# subsetting data for just H2O experiment 
+H2O_data <- data %>% 
+  filter(experiment == "H2O") %>% 
+  filter(timepoint != "exp_zero") %>% 
+  filter(timepoint != "final_dilcor") %>%
+  filter(experiment == "H2O") %>% 
+  rename(H2O_treatment = pH_treatment) %>% 
+  mutate(H2O_treatment = recode(H2O_treatment, "Wet control" = "yes"),
+         H2O_treatment = fct_relevel(H2O_treatment, c("no","yes") ) ,
+         soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) 
+
+# pivoting data to calculate final - initial change in isotope values 
+H2O_data  <- H2O_data %>% 
+  pivot_wider(names_from = timepoint,
+              values_from = d13C_VPDB_perc)
+
+# final_d13C_values <- pivot[40:78,8]
+# 
+# all_but_final <- pivot[1:39,1:7]
+# 
+# H2O_data_new <- cbind(all_but_final,final_d13C_values)
+
+H2O_data_new <- H2O_data %>% 
+  mutate(d13C_diff = final-initial)
+
+# summarizing data for figure 
+H2O_summary <- H2O_data_new %>% 
+  group_by(soil_type,H2O_treatment) %>% 
+  summarise(mean_d13C_diff = mean(d13C_diff),
+            sd = sd(d13C_diff),
+            n = length(d13C_diff),
+            se = sd/n) %>% 
+    mutate(H2O_treatment = fct_relevel(H2O_treatment, c("Dry control","5","7","8") ) ) %>% 
+    mutate(soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) 
+
+
+# 1) linear models
+# Fit models for each soil_type and store results
+H2O_d13C_model <- H2O_data_new %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(d13C_diff ~ H2O_treatment, data = .x)   # fit linear model for CH4 initial ppm vs H2O_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ H2O_treatment)  # get pairwise emmeans for H2O_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(H2O_data_new$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# H2O_d13C_model
+
+# Unamended soils model results 
+summary(H2O_d13C_model$Unamended$model) # model summary 
+anova(H2O_d13C_model$Unamended$model) # ANOVA table 
+H2O_d13C_model$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(H2O_d13C_model$`Ground Rock`$model) # model summary 
+anova(H2O_d13C_model$`Ground Rock`$model) # ANOVA table 
+H2O_d13C_model$`Ground Rock`$emmeans # returns both emmeans and pairwise objects              
+
+# 2) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+H2O_d13C_letters <- map_df(names(H2O_d13C_model), function(st) {
+  emmeans_res <- H2O_d13C_model[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "H2O_treatment", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))  # Relevel H2O_treatment
+  )
+
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
+
+H2O_d13C_letters <- H2O_d13C_letters %>%
+  left_join(H2O_summary %>% dplyr::select(soil_type, H2O_treatment, mean_d13C_diff, se),
+            by = c("soil_type", "H2O_treatment")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    # letter_y = mean_d13C_diff + se + 2.5*max(mean_d13C_diff)
+    letter_y = mean_d13C_diff + 2.15
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    H2O_treatment = factor(H2O_treatment, levels = c("no","yes"))  # Relevel H2O_treatment
+  )
+
+# 3) 
+# Create p-value annotations from model summaries
+H2O_d13C_pvals <- map_df(names(H2O_d13C_model), function(st) {
+  model <- H2O_d13C_model[[st]]$model                # Extract the lm object
+  pval  <- anova(model)$`Pr(>F)`[1]             # Extract the p-value for H2O_treatment
+  data.frame(
+    soil_type = st,                              # Use the soil type name from the list
+    label = paste0("p = ", signif(pval, 2))     # Format p-value
+  )
+}) %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock"))  # Relevel soil_type for plotting
+  )
+
+# 4) Plot d13C difference means and lm stats results
+H2O_d13C_diff_plot <- ggplot(H2O_summary, aes(x=H2O_treatment,y=mean_d13C_diff) ) +
+  geom_point(aes(color=H2O_treatment), size = 3 ) +
+  # facet_wrap(~ soil_type) +
+  # ggtitle(bquote("Final and initial" ^13*"C isotope ratios by H2O treatment and soil type") ) +
+  ylab(bquote(CO[2]~delta^13~C[VPDB]~"("~"\u2030"~")"~Change) ) +
+  labs(x = "Water Treatment") +
+  # ggtitle(bquote("Difference between Final and Initial" ^13*"C isotope ratios by H2O Treatment") ) +
+  theme_bw() +
+  geom_errorbar(data = H2O_summary, aes(x=H2O_treatment, 
+                                       ymin=mean_d13C_diff-sd, 
+                                       ymax=mean_d13C_diff+sd, color=H2O_treatment), width=0.25, linewidth=.4) +
+  geom_text(
+    data = H2O_d13C_letters, 
+    aes(x = H2O_treatment, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = H2O_d13C_pvals, 
+    aes(x = 1, 
+        y = max(H2O_summary$mean_d13C_diff)*1.1, 
+        label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type, strip = strip_themed(
+    background_x = elem_list_rect(fill = rep("gray95", 2)),
+    text_x = elem_list_text(color = rep("black", 2))
+  )) +
+  scale_fill_manual(values = c("darkgrey", "#a6cee3")) +
+  scale_color_manual(values = c("darkgrey", "#a6cee3")) +
+  theme(
+  plot.title = element_text(size = 17),        # Title text size
+  axis.title.x = element_text(size = 14),      # X-axis title text size
+  axis.title.y = element_text(size = 14),      # Y-axis title text size
+  axis.text.x = element_text(size = 12),       # X-axis text size
+  axis.text.y = element_text(size = 12),       # Y-axis text size
+  legend.title = element_text(size = 14),      # Legend title text size
+  legend.text = element_text(size = 12),        # Legend text size
+  legend.position = "none"
+) 
+
+# saving plot to folder 
+ggsave(plot = H2O_d13C_diff_plot, filename = "figures/isotopes/H2O_isotope_differences.png", width = 8.5, height = 5)
+
+
+```
+
+
+
+# OLD CODE 
 
 ```{r summarizing data for fig - final uncorrected}
 
@@ -132,7 +466,6 @@ Plot
 ggsave(Plot, filename = "figures/isotopes/pH.png", width = 8, height = 5)
 
 ```
-
 
 ```{r summarizing data for fig - final 12C dilution corrected}
 

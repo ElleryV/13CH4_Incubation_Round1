@@ -231,7 +231,8 @@ CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_m
     background_x = elem_list_rect(fill = rep("gray95", 2)),
     text_x = elem_list_text(color = rep("black", 2))
   )) +
-  scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
+  scale_fill_manual(values = c("#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
   theme_bw() +
   labs(title = bquote(CH[4]~Concentrations~Timepoint~1),
        x = "pH Treatment",
@@ -248,7 +249,7 @@ CH4_conc_means_I <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_INITIAL_m
 
 CH4_conc_means_I
 
-ggsave(plot = CH4_conc_means_I, filename = "figures/pH/pH_CH4_conc_INITIAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_I, filename = "figures/pH/concentrations/pH_CH4_conc_INITIAL_nocontrol.png", width = 8.5, height = 5)
 
 ```
 
@@ -353,7 +354,8 @@ CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mea
     background_x = elem_list_rect(fill = rep("gray95", 2)),
     text_x = elem_list_text(color = rep("black", 2))
   )) +
-  scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
+  scale_fill_manual(values = c("#046C9A", "#D69C4E","#ABDDDE")) +
+  # scale_fill_manual(values = c("darkgrey", "#66c2a5", "#8da0cb")) +
   theme_bw() +
   labs(title = bquote(CH[4]~Concentrations~Timepoint~2),
        x = "pH Treatment",
@@ -370,7 +372,7 @@ CH4_conc_means_F <- ggplot(summ_exp, aes(x = pH_treatment, y = CH4_ppm_FINAL_mea
 
 CH4_conc_means_F
 
-ggsave(plot = CH4_conc_means_F, filename = "figures/pH/pH_CH4_conc_FINAL_mean.png", width = 8.5, height = 5)
+ggsave(plot = CH4_conc_means_F, filename = "figures/pH/concentrations/pH_CH4_conc_FINAL_nocontrol.png", width = 8.5, height = 5)
 
 ```
 
