@@ -31,6 +31,8 @@ library(readxl)
 library(ggh4x)
 library(ggtext)
 library(wesanderson)
+library(cowplot)
+library(magick)
 
 ```
 
@@ -98,8 +100,19 @@ tab_model(K_all_lm)
 
 ```{r individual soil & pH treatment combo plots}
 
-library(ggplot2)
-library(dplyr)
+big_theme <- theme_bw() +
+  theme(
+    axis.title.y = element_markdown(size = 18),
+    axis.title.x = element_markdown(size = 18),
+    axis.text.x  = element_text(size = 14),
+    axis.text.y  = element_text(size = 14),
+    plot.title   = element_text(hjust = 0.5, size = 22),
+    legend.title = element_text(size = 18),
+    legend.text  = element_text(size = 14)
+  )
+
+all_plots <- list()
+i <- 1
 
 # Loop through combinations of soil type and pH treatment
 for (s in unique(data.plot$soil_type)) {
@@ -121,6 +134,9 @@ for (s in unique(data.plot$soil_type)) {
     # eqn <- sprintf("y = %.3f x + %.3f\nR² = %.3f", slope, intercept, r2) text showing the full equation and R2
     eqn <- sprintf("y-intercept = %.2f", intercept)
     
+    # all_plots <- list()   # before loop
+    # i <- 1
+    
     # Make plot
     p_plot <- ggplot(subset_data, aes(x = CO2_ppm_inverse, y = d13C_permil, color = timepoint)) +
       geom_point() +
@@ -131,18 +147,19 @@ for (s in unique(data.plot$soil_type)) {
         x = "1/[CO<sub>2</sub>] (ppm<sup>-1</sup>)"
       ) +
       scale_color_manual(values=wes_palette("Darjeeling1", 2) ) +
-      theme_bw() +
-      theme(
-        axis.title.y = element_markdown(),
-        axis.title.x = element_markdown(),
-        plot.title = element_text(hjust = 0.5,size = 20), # Title text size
-        # axis.title.x = element_text(size = 14),      # X-axis title text size
-        # axis.title.y = element_text(size = 14),      # Y-axis title text size
-        axis.text.x = element_text(size = 12),       # X-axis text size
-        axis.text.y = element_text(size = 12),       # Y-axis text size
-        legend.title = element_text(size = 14),      # Legend title text size
-        legend.text = element_text(size = 12),        # Legend text size
-      ) +
+      big_theme +
+    # theme_bw() +
+    #   theme(
+    #     axis.title.y = element_markdown(),
+    #     axis.title.x = element_markdown(),
+    #     plot.title = element_text(hjust = 0.5,size = 20), # Title text size
+    #     # axis.title.x = element_text(size = 14),      # X-axis title text size
+    #     # axis.title.y = element_text(size = 14),      # Y-axis title text size
+    #     axis.text.x = element_text(size = 12),       # X-axis text size
+    #     axis.text.y = element_text(size = 12),       # Y-axis text size
+    #     legend.title = element_text(size = 14),      # Legend title text size
+    #     legend.text = element_text(size = 12),        # Legend text size
+    #   ) +
       annotate(
         "label",
         # x = Inf, y = -Inf,          # place in bottom-right corner
@@ -150,13 +167,19 @@ for (s in unique(data.plot$soil_type)) {
         y = min(subset_data$d13C_permil, na.rm = TRUE) + 0.05 * diff(range(subset_data$d13C_permil, na.rm = TRUE)),
         label = eqn,
         hjust = 0, vjust = 0,
-        size = 3.5,
+        size = 5,
         color = "black",
         fill = "white",
         label.size = 0.3
       ) +
       labs(color = "Timepoint")
     
+    # all_plots[[i]] <- p_plot
+    # i <- i + 1
+
+    # Save plot to list with a descriptive name
+    all_plots[[paste0(s, "_pH", p)]] <- p_plot
+
     # Save each plot
     filename <- sprintf("figures/isotopes/keeling/Keeling_%s_pH%s.png", s, p)
     ggsave(filename, p_plot, width = 9, height = 6.5)
@@ -170,6 +193,66 @@ for (s in unique(data.plot$soil_type)) {
 lm <- lm(d13C_permil ~ CO2_ppm_inverse,
          data = subset(data.plot, soil_type == "Ground Rock" & pH_treatment == "Dry control"))
 summary(lm)
+
+```
+
+Making 4 paneled figures to include in supplemental information of the manuscript 
+
+```{r 4 panel figure for pH exp - unamended soils}
+
+# Then extract the 4 Unamended plots
+plots_unamended <- all_plots[grepl("^Unamended_pH", names(all_plots))]
+
+# Proceed with shared legend
+# Shared legend
+shared_legend <- get_legend(
+  plots_unamended[[1]] + theme(legend.position = "bottom")
+)
+
+# Remove legends
+plots_nolegend <- lapply(plots_unamended, function(p) p + theme(legend.position = "none"))
+
+# 2x2 grid
+panel_grid <- plot_grid(
+  plotlist = plots_nolegend, 
+  ncol = 2, 
+  labels = "AUTO", # generates A, B, C, D for panel labels
+  label_size = 20) # # increase number to make letters bigger
+
+# Attach shared legend
+composite_unamended <- plot_grid(panel_grid, shared_legend, ncol = 1, rel_heights = c(1, 0.12))
+
+# Save
+ggsave("figures/isotopes/keeling/Composite_Unamended.png", composite_unamended, width = 15, height = 13)
+
+```
+
+```{r 4 panel figure for pH exp - ground rock soils}
+
+# Then extract the 4 ground rock plots
+plots_groundrock <- all_plots[grepl("^Ground Rock_pH", names(all_plots))]
+
+# Proceed with shared legend
+# Shared legend
+shared_legend <- get_legend(
+  plots_groundrock[[1]] + theme(legend.position = "bottom")
+)
+
+# Remove legends
+plots_nolegend <- lapply(plots_groundrock, function(p) p + theme(legend.position = "none"))
+
+# 2x2 grid
+panel_grid <- plot_grid(
+  plotlist = plots_nolegend, 
+  ncol = 2, 
+  labels = "AUTO", # generates A, B, C, D for panel labels
+  label_size = 20) # # increase number to make letters bigger
+
+# Attach shared legend
+composite_groundrock <- plot_grid(panel_grid, shared_legend, ncol = 1, rel_heights = c(1, 0.12))
+
+# Save
+ggsave("figures/isotopes/keeling/Composite_Ground Rock.png", composite_groundrock, width = 15, height = 13)
 
 ```
 
