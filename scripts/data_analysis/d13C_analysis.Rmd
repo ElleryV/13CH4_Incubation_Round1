@@ -113,7 +113,7 @@ summary_paper <- pH_data %>%
     soil_type = fct_relevel(soil_type, "Unamended", "Ground Rock")
   )
 
-write_csv(summary_paper, "data/d13C_summary.csv")
+write_csv(summary_paper, "manuscript_materials/pH_d13C_summary.csv")
 
 # 1) linear models
 # Fit models for each soil_type and store results
@@ -240,32 +240,24 @@ ggsave(plot = pH_d13C_diff_plot, filename = "figures/isotopes/pH_isotope_differe
 ```{r H2O exp difference stas & figure}
 
 # subsetting data for just H2O experiment 
-H2O_data <- data %>% 
-  filter(experiment == "H2O") %>% 
-  filter(timepoint != "exp_zero") %>% 
-  filter(timepoint != "final_dilcor") %>%
-  filter(experiment == "H2O") %>% 
-  rename(H2O_treatment = pH_treatment) %>% 
-  mutate(H2O_treatment = recode(H2O_treatment, "Wet control" = "yes"),
-         H2O_treatment = fct_relevel(H2O_treatment, c("no","yes") ) ,
-         soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) 
-
-# pivoting data to calculate final - initial change in isotope values 
-H2O_data  <- H2O_data %>% 
-  pivot_wider(names_from = timepoint,
-              values_from = d13C_VPDB_perc)
-
-# final_d13C_values <- pivot[40:78,8]
-# 
-# all_but_final <- pivot[1:39,1:7]
-# 
-# H2O_data_new <- cbind(all_but_final,final_d13C_values)
-
-H2O_data_new <- H2O_data %>% 
+H2O_data <- data %>%
+  filter(
+    experiment == "H2O",
+    !timepoint %in% c("exp_zero", "final_dilcor")
+  ) %>%
+  rename(H2O_treatment = pH_treatment) %>%
+  mutate(
+    H2O_treatment = recode(H2O_treatment, "Wet control" = "yes"),
+    H2O_treatment = fct_relevel(H2O_treatment, "no", "yes"),
+    soil_type     = fct_relevel(soil_type, "Unamended", "Ground Rock")
+  ) %>%
+  dplyr::select(-jar_type, -experiment, -sample_id) %>%
+  pivot_wider(names_from = timepoint,                    # pivoting data to calculate final - initial change in isotope values
+              values_from = d13C_VPDB_perc) %>%
   mutate(d13C_diff = final-initial)
 
 # summarizing data for figure 
-H2O_summary <- H2O_data_new %>% 
+H2O_summary <- H2O_data %>% 
   group_by(soil_type,H2O_treatment) %>% 
   summarise(mean_d13C_diff = mean(d13C_diff),
             sd = sd(d13C_diff),
@@ -274,6 +266,31 @@ H2O_summary <- H2O_data_new %>%
     mutate(H2O_treatment = fct_relevel(H2O_treatment, c("Dry control","5","7","8") ) ) %>% 
     mutate(soil_type = fct_relevel(soil_type, c("Unamended","Ground Rock") ) ) 
 
+# summarizing data for table in paper
+summary_paper <- H2O_data %>% 
+  pivot_longer(cols = c(initial, final),
+               names_to = "variable",
+               values_to = "value") %>% 
+  group_by(soil_type, H2O_treatment, variable) %>% 
+  summarise(
+    mean = mean(value, na.rm = TRUE),
+    sd = sd(value, na.rm = TRUE),
+    n = dplyr::n(),
+    se = sd / n,
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    H2O_treatment = fct_relevel(H2O_treatment, "no","yes"),
+    soil_type = fct_relevel(soil_type, "Unamended", "Ground Rock")
+  )
+
+summary_paper <- summary_paper %>% 
+  dplyr::select(-sd) %>% 
+  pivot_wider(names_from = variable,
+              values_from = c(mean,se)) %>% 
+  dplyr::select(soil_type:n,mean_initial,se_initial,mean_final,se_final)
+
+write_csv(summary_paper, "manuscript_materials/H2O_d13C_summary.csv")
 
 # 1) linear models
 # Fit models for each soil_type and store results

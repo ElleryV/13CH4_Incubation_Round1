@@ -124,6 +124,44 @@ summ_exp <- exp_jars %>%  # Start with the 'exp_jars' dataset and pipe it forwar
 
 # write_csv(summ_exp,"summarized_data.csv")
 
+# making table to copy values into summary table for mauscript SI
+CH4table_summ_exp <- data %>% 
+  filter(jar_type == "Exp") %>% 
+  group_by(soil_type, pH_treatment) %>% # Group the data by the factors 'soil_type' and 'pH_treatment'
+  # All subsequent summary operations will be performed within these groups
+ 
+   summarise(
+    across(
+      c(CH4_ppm_INITIAL, CH4_ppm_FINAL),  # Select the numeric columns to summarize: initial and final CH4 ppm
+      list(
+        mean = ~ mean(.x, na.rm = TRUE),  # Compute mean, ignoring NAs
+        sd   = ~ sd(.x, na.rm = TRUE),    # Compute standard deviation, ignoring NAs
+        n    = ~ n()                      # Count number of rows in the group
+      ),
+      .names = "{.col}_{.fn}"  
+    ),
+    .groups = "drop"  # Ungroup the data after summarising so further operations are not grouped
+  ) %>% 
+  
+  # Calculate standard error and relevel factors
+  mutate(
+    se_CH4_ppm_INITIAL = CH4_ppm_INITIAL_sd / sqrt(CH4_ppm_INITIAL_n),  # Standard error = SD / sqrt(n) for initial CH4
+    se_CH4_ppm_FINAL   = CH4_ppm_FINAL_sd / sqrt(CH4_ppm_FINAL_n),  # Standard error = SD / sqrt(n) for final CH4
+    
+    # Convert factors to ordered factors with specific levels
+    soil_type    = factor(soil_type, levels = c("Unamended", "Ground Rock")),  
+    pH_treatment = factor(pH_treatment, levels = c("Dry control","5", "7", "8"))  
+  ) %>% 
+  dplyr::select(soil_type,
+         pH_treatment,
+         CH4_ppm_INITIAL_mean,
+         se_CH4_ppm_INITIAL,
+         CH4_ppm_FINAL_mean,
+         se_CH4_ppm_FINAL)
+
+write_csv(CH4table_summ_exp,"manuscript_materials/pH_CH4ppm_summary.csv")
+
+
 
 ```
 
