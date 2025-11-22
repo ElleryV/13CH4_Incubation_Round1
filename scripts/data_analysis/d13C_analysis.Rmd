@@ -45,23 +45,19 @@ setwd("~/Desktop/Berkeley Life/Cal Grad Program/Dissertation_Research/13CH4_Incu
 
 raw <- readxl::read_xlsx("data/pH_H2O_isotopes.xlsx",sheet = "Sheet1")
 
-# data <- raw %>% 
-#   filter(timepoint == "initial" | timepoint == "final" | timepoint == "final_dilcor" | timepoint == "exp_zero" ) %>%
-#   select(date:d13C_VPDB_perc)
-
 data <- raw %>% 
   filter(jar_type == "Exp") %>% 
   mutate(across(c(soil_type, pH_treatment, jar_type, timepoint, experiment), as.factor) ) %>% 
   mutate(d13C_VPDB_perc = as.numeric(d13C_VPDB_perc)) %>% 
   mutate(timepoint = fct_relevel(timepoint, c("initial","final","final_dilcor","exp_zero"))) 
 
-# removing the 3 jars where SF6 concentrations went down a considerable amount suggesting potential leakage 
-# data <- data %>%
-#   filter(sample_num != 21 & sample_num != 24 & sample_num != 37) 
+```
+
+```{r }
 
 ```
 
-```{r pH exp difference stas & figure}
+```{r preparing data to make pH T2-T1 difference figure}
 
 # subsetting data for just pH experiment 
 pH_data <- data %>% 
@@ -79,11 +75,9 @@ pH_data <- pH_data %>%
               values_from = d13C_VPDB_perc) %>% 
   mutate(d13C_diff = final-initial)
 
-# final_d13C_values <- pivot[40:78,8]
-# 
-# all_but_final <- pivot[1:39,1:7]
-# 
-# pH_data_new <- cbind(all_but_final,final_d13C_values)
+```
+
+```{r summarizing data for pH figure and for table for manuscript}
 
 # summarizing data for figure 
 pH_summary <- pH_data %>% 
@@ -115,9 +109,12 @@ summary_paper <- pH_data %>%
 
 write_csv(summary_paper, "manuscript_materials/pH_d13C_summary.csv")
 
+```
+
+```{r pH exp T2-T1 difference stats & figure}
 # 1) linear models
 # Fit models for each soil_type and store results
-pH_d13C_model <- pH_data_new %>% 
+pH_d13C_model <- pH_data %>% 
   group_by(soil_type) %>%                                # group data by soil type
   group_map(~ {                                           # apply function to each group
     lm_fit <- lm(d13C_diff ~ pH_treatment, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
@@ -126,7 +123,7 @@ pH_d13C_model <- pH_data_new %>%
       emmeans = emmeans(lm_fit, pairwise ~ pH_treatment)  # get pairwise emmeans for pH_treatment
     )
   }, keep = TRUE) %>%                                     # keep soil_type info in output
-  set_names(unique(pH_data_new$soil_type))                   # name each list element by soil_type
+  set_names(unique(pH_data$soil_type))                   # name each list element by soil_type
 
  # all model output 
 # pH_d13C_model
@@ -231,13 +228,15 @@ pH_d13C_diff_plot <- ggplot(pH_summary, aes(x=pH_treatment,y=mean_d13C_diff) ) +
   legend.position = "none"
 ) 
 
+pH_d13C_diff_plot
+
 # saving plot to folder 
 ggsave(plot = pH_d13C_diff_plot, filename = "figures/isotopes/pH_isotope_differences.png", width = 8.5, height = 5)
 
 ```
 
 
-```{r H2O exp difference stas & figure}
+```{r preparing data to make H2O T2-T1 difference figure}
 
 # subsetting data for just H2O experiment 
 H2O_data <- data %>%
@@ -256,6 +255,9 @@ H2O_data <- data %>%
               values_from = d13C_VPDB_perc) %>%
   mutate(d13C_diff = final-initial)
 
+```
+
+```{r summarizing data for H2O figure and for table for manuscript}
 # summarizing data for figure 
 H2O_summary <- H2O_data %>% 
   group_by(soil_type,H2O_treatment) %>% 
@@ -291,6 +293,10 @@ summary_paper <- summary_paper %>%
   dplyr::select(soil_type:n,mean_initial,se_initial,mean_final,se_final)
 
 write_csv(summary_paper, "manuscript_materials/H2O_d13C_summary.csv")
+
+```
+
+```{r H2O exp T2-T1 difference stats & figure}
 
 # 1) linear models
 # Fit models for each soil_type and store results
