@@ -1,0 +1,357 @@
+---
+title: "Final Moisture and pH"
+author: "Ellery Vaughan"
+date: "2024-08-30"
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_depth: 3$
+    toc_float: no
+    df_print: kable 
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Analyzing final 13CH4 Incubation soil moisture and pH (for both pH and H2O experiments)
+
+## pH Experiment 
+
+```{r loading libraries and setting WD}
+
+library(tidyverse)
+library(ggh4x)
+library(emmeans)
+
+```
+
+```{r reading in and cleaning data}
+
+raw <- read_csv("data/CH4 Incubation Lab Measurements_Final soil moisture and pH.csv")
+
+data <- raw %>% 
+  mutate(
+    across(c(soil_type,pH_treat,jar_type), as.factor),
+    pH_treat = recode(pH_treat, none = 'Dry control'),
+    pH_treat = fct_relevel(pH_treat, "Dry control","5","7","8"),
+    soil_type = recode(soil_type,
+                       'Ctrl' = 'Unamended',
+                       'GrRk' = 'Ground Rock'),
+    soil_type = fct_relevel(soil_type, "Unamended","Ground Rock","None")
+  )
+
+summary <- data %>% 
+  filter(jar_type == "Exp") %>% 
+  mutate(soil_type = fct_drop(soil_type),
+         soil_type = fct_relevel(soil_type, "Unamended","Ground Rock") ) %>% 
+  group_by(soil_type,pH_treat) %>% 
+  summarise(mean_pH = mean(soil_pH, na.rm = T),
+            sd_pH = sd(soil_pH, na.rm = T),
+            n_pH = length(soil_pH),
+            se_pH = sd_pH/sqrt(n_pH),
+            mean_moisture = mean(moisture_perc, na.rm = T),
+            sd_moisture = sd(moisture_perc, na.rm = T),
+            n_moisture = length(moisture_perc),
+            se_moisture = sd_moisture/sqrt(n_pH) )
+            
+write_csv(summary, "data/finalsoilmoisture_pH.csv")
+
+data_model <- data %>% 
+  filter(jar_type == "Exp") %>% 
+  mutate(
+    soil_type = fct_drop(soil_type),   # <-- drops "None"
+    soil_type = fct_relevel(soil_type, "Unamended","Ground Rock")
+  )
+
+
+```
+
+
+```{r end of incubation pH fig - pH experiment} 
+
+# pH exp final pH modeling 
+# Unamended soils 
+# p-value: < 2.2e-16
+un_pH <- data_model %>% 
+  filter(soil_type == "Unamended" & jar_type == "Exp")
+
+un_pH_lm <- lm(soil_pH ~ pH_treat, data = un_pH)
+summary(un_pH_lm)
+
+un_pH_lm_emmeans <- emmeans(un_pH_lm, pairwise ~ pH_treat) 
+
+# Ground rock soils
+# p-value: 1.564e-15
+gr_pH <- data_model %>% 
+  filter(soil_type == "Ground Rock" & jar_type == "Exp")
+
+gr_pH_lm <- lm(soil_pH ~ pH_treat, data = gr_pH)
+summary(gr_pH_lm)
+
+gr_pH_lm_emmeans <- emmeans(un_pH_lm, pairwise ~ pH_treat) 
+
+
+# p-values to add to figure 
+# ANOVA results:
+## Unamended soils = p-value: 0.195 | NA
+## Ground rock soils = p-value: 0.03159 | < 0.05
+# Only include the right panel
+# pH_mean_pvals <- data.frame(
+#   soil_type = "Unamended","Ground Rock",
+#   x = factor("yes", levels = levels(summary$pH_treat)),  # match factor levels
+#   y = max(summary$mean_pH)*1.05,
+#   label = "p < 0.001") %>% 
+#   mutate(soil_type = factor(soil_type, levels = c("Unamended","Ground Rock") ) )
+
+# 1) linear models
+# Fit models for each soil_type and store results
+pH_model <- data_model %>% 
+  filter(jar_type == "Exp") %>% 
+  group_by(soil_type) %>%                                # group data by soil type
+  group_map(~ {                                           # apply function to each group
+    lm_fit <- lm(soil_pH ~ pH_treat, data = .x)   # fit linear model for CH4 initial ppm vs pH_treatment
+    list(                                                 # return both model and emmeans results
+      model = lm_fit,                                     # store lm model
+      emmeans = emmeans(lm_fit, pairwise ~ pH_treat)  # get pairwise emmeans for pH_treatment
+    )
+  }, keep = TRUE) %>%                                     # keep soil_type info in output
+  set_names(unique(data_model$soil_type))                   # name each list element by soil_type
+
+ # all model output 
+# pH_d13C_model
+
+# Unamended soils model results 
+summary(pH_model$Unamended$model) # model summary 
+anova(pH_model$Unamended$model) # ANOVA table 
+pH_model$Unamended$emmeans # returns both emmeans and pairwise objects              
+
+# Unamended soils model results 
+summary(pH_model$`Ground Rock`$model) # model summary 
+anova(pH_model$`Ground Rock`$model) # ANOVA table 
+pH_model$`Ground Rock`$emmeans # returns both emmeans and pairwise objects 
+
+# 2) post-hoc pairwise comparisons and dynamically generate letters
+# Generate compact letter display for each soil type
+pH_letters <- map_df(names(pH_model), function(st) {
+  emmeans_res <- pH_model[[st]]$emmeans$emmeans  # Extract emmeans table
+  cld_df <- multcomp::cld(emmeans_res, Letters=letters)    # Generate compact letter display
+  cld_df <- as.data.frame(cld_df)                   # Convert to standard data frame
+  cld_df$soil_type <- st                            # Add soil type as a column
+  cld_df$letters <- cld_df$.group                   # Rename .group column to 'letters'
+  cld_df <- cld_df[, c("soil_type", "pH_treat", "letters")]  # Keep only relevant columns
+  return(cld_df)                                    # Return processed data frame
+}) %>%
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treat = factor(pH_treat, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+# dynamically assign posthoc pairwise letter positions based on max value per soil type
+
+pH_letters <- pH_letters %>%
+  left_join(summary %>% dplyr::select(soil_type, pH_treat, mean_pH,se_pH),
+            by = c("soil_type", "pH_treat")) %>%
+  group_by(soil_type) %>%
+  mutate(
+    letter_y = mean_pH + se_pH + .025*max(mean_pH)
+    # letter_y = mean_d13C_diff + 2.25
+  ) %>%
+  ungroup() %>% 
+  mutate(
+    soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")),  # Relevel soil_type for plotting
+    pH_treat = factor(pH_treat, levels = c("Dry control", "5", "7", "8"))  # Relevel pH_treatment
+  )
+
+pH_mean_pvals <- data.frame(
+  soil_type = c("Unamended", "Ground Rock"),
+  x = factor("8", levels = levels(summary$pH_treat)),
+  y = max(summary$mean_pH) * 1.07,
+  label = "p < 0.001"
+) %>%
+  mutate(soil_type = factor(soil_type, levels = c("Unamended", "Ground Rock")))
+
+pH_mean <- ggplot(summary, aes(x=pH_treat,y=mean_pH,fill=pH_treat) ) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(data = summary, aes(x=pH_treat, ymin=mean_pH-se_pH, ymax=mean_pH+se_pH), width=0.25, size=.3)  +
+  geom_text(
+    data = pH_letters, 
+    aes(x = pH_treat, 
+        y = letter_y, 
+        label = letters),
+    inherit.aes = FALSE,
+    fontface = "bold",
+    size = 5
+  ) +
+  geom_label(
+    data = pH_mean_pvals,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type,
+             strip = strip_themed(
+  background_x = elem_list_rect(fill = rep("gray95", 2)),
+  text_x = elem_list_text(color = rep("black", 2)) 
+  )) +
+  theme_bw () +
+  labs(
+    # title = "pH of pH Treatment Soils",
+        x = "pH Treatment",
+       y = "Soil pH") +
+  scale_fill_manual(values=c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  scale_color_manual(values=c("darkgrey", "#046C9A", "#D69C4E","#ABDDDE")) +
+  theme(
+  axis.title.x = element_text(size = 20),      # X-axis title text size
+  axis.title.y = element_text(size = 20),      # Y-axis title text size
+  axis.text.x = element_text(size = 15),       # X-axis text size
+  axis.text.y = element_text(size = 15),       # Y-axis text size
+  strip.text = element_text(size = 15),
+  legend.position = "none") +
+  coord_cartesian(ylim = c(4, 8.5))
+
+pH_mean
+
+ggsave(plot = pH_mean, filename = "figures/pH/pHExp_FinalpH_11.20.25.png", width = 8.5, height = 5)
+
+```
+
+
+## H2O Experiment 
+
+```{r pH data reading in and cleaning data}
+
+pH_raw <- readxl::read_xlsx("data/Wetted control 13CH4 Incubation Final Soil Moisture_pH.xlsx", sheet = "raw")
+
+pH_data <- pH_raw %>% 
+  select(jar_num:jar_type,pH) %>% 
+  filter(H2O_treat == "no" | H2O_treat == "yes") %>% 
+  mutate(soil_type = fct_relevel(soil_type, c("Unamended", "Ground Rock") ) ) %>% 
+  mutate(H2O_treat = as.factor(H2O_treat) )
+
+
+pH_summary <- pH_data %>% 
+  group_by(soil_type,H2O_treat) %>% 
+  filter(jar_type == "Exp") %>% 
+  summarize(mean = mean(pH),
+            sd = sd(pH),
+            n = length(pH),
+            se = sd/sqrt(n)
+            ) %>% 
+  mutate(soil_type = fct_relevel(soil_type, c("Unamended", "Ground Rock") ) ) %>% 
+  mutate(H2O_treat = as.factor(H2O_treat) )
+
+```
+
+```{r end of incubation pH fig - H2O experiment} 
+
+# p-values to add to figure 
+# ANOVA results:
+## Unamended soils = p-value: 0.195 | NA
+## Ground rock soils = p-value: 0.03159 | < 0.05
+# Only include the right panel
+pH_mean_pvals <- data.frame(
+  soil_type = "Ground Rock",
+  x = factor("yes", levels = levels(pH_summary$H2O_treat)),  # match factor levels
+  y = max(pH_summary$mean)*1.05,
+  label = "p < 0.05") %>% 
+  mutate(soil_type = factor(soil_type, levels = c("Unamended","Ground Rock") ) )
+
+
+pH_mean <- ggplot(pH_summary, aes(x=H2O_treat,y=mean,fill=H2O_treat) ) +
+  geom_col(position = "dodge", color = "black") +
+  geom_errorbar(data = pH_summary, aes(x=H2O_treat, ymin=mean-se, ymax=mean+se), width=0.25, size=.3)  +
+  geom_label(
+    data = pH_mean_pvals,
+    aes(x = x, y = y, label = label),
+    inherit.aes = FALSE) +
+  facet_wrap2(~soil_type,
+             strip = strip_themed(
+  background_x = elem_list_rect(fill = rep("gray95", 2)),
+  text_x = elem_list_text(color = rep("black", 2)) 
+  )) +
+  theme_bw () +
+  labs(title = "pH of Water Treatment Soils",
+        x = "Water Treatment",
+       y = "Soil pH") +
+  scale_fill_manual(values=c("darkgrey", "#a6cee3")) +
+  scale_color_manual(values=c("darkgrey", "#a6cee3")) +
+  theme(
+  axis.title.x = element_text(size = 20),      # X-axis title text size
+  axis.title.y = element_text(size = 20),      # Y-axis title text size
+  axis.text.x = element_text(size = 15),       # X-axis text size
+  axis.text.y = element_text(size = 15),       # Y-axis text size
+  strip.text = element_text(size = 15),
+  legend.position = "none") +
+  coord_cartesian(ylim = c(4, 6.5))
+
+pH_mean
+
+ggsave(plot = pH_mean, filename = "figures/pH/H2OExp_FinalpH_11.17.25.png", width = 8.5, height = 5)
+
+```
+
+```{r H2O exp final pH modeling}
+
+# Unamended soils 
+# p-value: 0.195
+un_pH <- pH_data %>% 
+  filter(soil_type == "Unamended" & jar_type == "Exp")
+
+un_pH_lm <- lm(pH ~ H2O_treat, data = un_pH)
+summary(un_pH_lm)
+
+# Ground rock soils
+# p-value: 0.03159
+gr_pH <- pH_data %>% 
+  filter(soil_type == "Ground Rock" & jar_type == "Exp")
+
+gr_pH_lm <- lm(pH ~ H2O_treat, data = gr_pH)
+summary(gr_pH_lm)
+
+```
+
+## OLD CODE 
+
+
+```{r OLD - end of incubation pH and moisture figs - pH experiment}
+
+# soil pH
+pH <- ggplot(summary, aes(x=pH_treat, y=mean_pH, color = pH_treat) ) +
+  geom_point(size = 2.5) +
+  facet_wrap(~ soil_type) +
+  labs(title = "Final Soil pH by Soil Type and pH Treatment",
+       x = "pH Treatment",
+       y = "pH") +
+  theme_bw() +
+   geom_errorbar(data = summary, aes(x=pH_treat, ymin=mean_pH-se_pH, ymax=mean_pH+se_pH), width=0.25, size=.5) +
+  scale_fill_manual(values=c("darkgrey", "#a6cee3", "#1f78b4", "#b2df8a")) +
+  scale_color_manual(values=c("darkgrey", "#a6cee3", "#1f78b4", "#b2df8a")) +
+  theme(legend.position = "none")
+  
+ggsave(plot = pH, filename = "figures/soil_characteristics/final_pH_8.12.png", width = 7, height = 4)
+
+# soil moisture
+moisture <- ggplot(summary, aes(x=pH_treat, y=mean_moisture, color = pH_treat) ) +
+  geom_point(size = 2.5) +
+  facet_wrap(~ soil_type) +
+  labs(title = "Final Soil moisture by Soil Type and pH Treatment",
+       x = "pH Treatment",
+       y = "Moisture (%)") +
+  theme_bw() +
+   geom_errorbar(data = summary, aes(x=pH_treat, ymin=mean_moisture-se_moisture, ymax=mean_moisture+se_moisture), width=0.5, size=.3) +
+  scale_fill_manual(values=c("darkgrey", "#a6cee3", "#1f78b4", "#b2df8a")) +
+  scale_color_manual(values=c("darkgrey", "#a6cee3", "#1f78b4", "#b2df8a")) +  
+  theme(legend.position = "none")
+  
+ggsave(plot = moisture, filename = "figures/soil_characteristics/final_moisture_8.12.png", width = 7, height = 4)
+
+
+combined <- cowplot::plot_grid(pH,moisture, ncol = 1)
+
+ggsave(plot = combined , filename = "figures/soil_characteristics/combined_8.12.png", width = 7, height = 6)
+```
+
+
+
